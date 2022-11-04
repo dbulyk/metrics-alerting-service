@@ -9,39 +9,38 @@ import (
 type (
 	gauge   float64
 	counter int64
+	Metric  struct {
+		Alloc,
+		BuckHashSys,
+		Frees,
+		GcCPUFraction,
+		GcSys,
+		HeapAlloc,
+		HeapIdle,
+		HeapInuse,
+		HeapObjects,
+		HeapReleased,
+		HeapSys,
+		LastGC,
+		Lookups,
+		MCacheInuse,
+		MCacheSys,
+		MSpanInuse,
+		MSpanSys,
+		Mallocs,
+		NextGC,
+		NumForcedGC,
+		NumGC,
+		OtherSys,
+		PauseTotalNs,
+		StackInuse,
+		StackSys,
+		Sys,
+		TotalAlloc,
+		RandomValue gauge
+		PollCount counter
+	}
 )
-
-type Metric struct {
-	Alloc,
-	BuckHashSys,
-	Frees,
-	GcCPUFraction,
-	GcSys,
-	HeapAlloc,
-	HeapIdle,
-	HeapInuse,
-	HeapObjects,
-	HeapReleased,
-	HeapSys,
-	LastGC,
-	Lookups,
-	MCacheInuse,
-	MCacheSys,
-	MSpanInuse,
-	MSpanSys,
-	Mallocs,
-	NextGC,
-	NumForcedGC,
-	NumGC,
-	OtherSys,
-	PauseTotalNs,
-	StackInuse,
-	StackSys,
-	Sys,
-	TotalAlloc,
-	RandomValue gauge
-	PollCount counter
-}
 
 func Collect(ch chan Metric, count int64) {
 	var rtm runtime.MemStats
