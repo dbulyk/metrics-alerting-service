@@ -58,12 +58,17 @@ func main() {
 				}
 				request.Header.Add("Content-Type", "text/plain")
 
-				_, err = client.Do(request)
+				response, err := client.Do(request)
 				if err != nil {
 					fmt.Println(err)
 					os.Exit(1)
 				}
 
+				err = response.Body.Close()
+				if err != nil {
+					fmt.Println(err)
+					os.Exit(1)
+				}
 			}
 
 			pollCount = 1
