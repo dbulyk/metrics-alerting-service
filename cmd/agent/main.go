@@ -1,8 +1,10 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
-	"github.com/dbulyk/metrics-alerting-service/internal/metric"
+	"github.com/dbulyk/metrics-alerting-service/internal/storage"
+	"io"
 	"net/http"
 	"os"
 	"reflect"
@@ -22,11 +24,11 @@ func main() {
 		mValue   interface{}
 		endpoint = "http://127.0.0.1:8080/"
 
-		m         metric.Metric
+		m         storage.MemStorage
 		pollCount int64 = 1
 	)
 
-	ch := make(chan metric.Metric)
+	ch := make(chan storage.MemStorage)
 	pollTicker := time.NewTicker(pollInterval)
 	reportTicker := time.NewTicker(reportInterval)
 
@@ -34,24 +36,20 @@ func main() {
 	for {
 		select {
 		case <-pollTicker.C:
-			go metric.Collect(ch, pollCount)
+			go m.Collect(ch, pollCount)
 			m = <-ch
 			pollCount += 1
-
 		case <-reportTicker.C:
 			val := reflect.ValueOf(m)
 			for fieldIndex := 0; fieldIndex < val.NumField(); fieldIndex++ {
-				w := strings.Builder{}
-				mName, mType, mValue = metric.GetNameTypeAndValue(val, fieldIndex)
+				mName, mType, mValue = m.GetNameTypeAndValue(val, fieldIndex)
 
-				_, err := fmt.Fprintf(&w, "%vupdate/%v/%v/%v", endpoint,
-					strings.TrimPrefix(mType, "metric."), mName, mValue)
-				if err != nil {
-					fmt.Println(err)
-					os.Exit(1)
-				}
+				builder := strings.Builder{}
+				fmt.Fprintf(&builder, "%v/%v/%v",
+					strings.TrimPrefix(mType, "storage."), mName, mValue)
 
-				request, err := http.NewRequest(http.MethodPost, endpoint, nil)
+				request, err := http.NewRequest(http.MethodPost, endpoint+"update/",
+					bytes.NewBufferString(builder.String()))
 				if err != nil {
 					fmt.Println(err)
 					os.Exit(1)
@@ -63,12 +61,14 @@ func main() {
 					fmt.Println(err)
 					os.Exit(1)
 				}
+				fmt.Println("Статус-код: ", response.Status)
 
-				err = response.Body.Close()
+				_, err = io.ReadAll(response.Body)
 				if err != nil {
 					fmt.Println(err)
 					os.Exit(1)
 				}
+				response.Body.Close()
 			}
 			pollCount = 1
 		}

@@ -1,15 +1,22 @@
-package metric
+package storage
 
 import (
 	"math/rand"
 	"reflect"
 	"runtime"
+	"strconv"
 )
 
+type Storage interface {
+	Collect(chan MemStorage, int64)
+	GetNameTypeAndValue(reflect.Value, int) (string, string, reflect.Value)
+	SetMetric()
+}
+
 type (
-	gauge   float64
-	counter int64
-	Metric  struct {
+	gauge      float64
+	counter    int64
+	MemStorage struct {
 		Alloc,
 		BuckHashSys,
 		Frees,
@@ -42,12 +49,12 @@ type (
 	}
 )
 
-func Collect(ch chan Metric, count int64) {
+func (m *MemStorage) Collect(ch chan MemStorage, count int64) {
 	var rtm runtime.MemStats
 
 	runtime.ReadMemStats(&rtm)
 
-	ch <- Metric{
+	ch <- MemStorage{
 		Alloc:         gauge(rtm.Alloc),
 		BuckHashSys:   gauge(rtm.BuckHashSys),
 		Frees:         gauge(rtm.Frees),
@@ -80,7 +87,24 @@ func Collect(ch chan Metric, count int64) {
 	}
 }
 
-func GetNameTypeAndValue(val reflect.Value, fieldIndex int) (string, string, reflect.Value) {
+func (m *MemStorage) GetNameTypeAndValue(val reflect.Value, fieldIndex int) (string, string, reflect.Value) {
 	field := val.Field(fieldIndex)
 	return val.Type().Field(fieldIndex).Name, field.Type().String(), field
+}
+
+func (m *MemStorage) SetMetric(s []string) {
+	fValue, err := strconv.ParseFloat(s[2], 64)
+	if err != nil {
+		return
+	}
+
+	a := reflect.ValueOf(m).Elem()
+	b := a.FieldByName(s[1])
+
+	if s[0] == "counter" {
+		val := counter(b.Int())
+		b.Set(reflect.ValueOf(val + counter(fValue)))
+	} else {
+		b.Set(reflect.ValueOf(gauge(fValue)))
+	}
 }
