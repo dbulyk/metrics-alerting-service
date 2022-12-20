@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 )
 
@@ -49,7 +50,6 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	http.NotFound(w, r)
-	return
 }
 
 func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
@@ -59,8 +59,16 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 	}
 
-	storage.SetMetric(strings.Split(string(contents), "/"))
+	values := strings.Split(string(contents), "/")
+	fType := values[0]
+	fName := values[1]
+	fValue, err := strconv.ParseFloat(values[2], 64)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+	}
+
+	statusCode := storage.SetMetric(fType, fName, fValue)
 	fmt.Print(storage)
 
-	w.WriteHeader(http.StatusOK)
+	w.WriteHeader(statusCode)
 }

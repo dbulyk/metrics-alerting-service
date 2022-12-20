@@ -22,7 +22,7 @@ func main() {
 		mName,
 		mType string
 		mValue   interface{}
-		endpoint = "http://127.0.0.1:8080/"
+		endpoint = "http://localhost:8080/"
 
 		m         storage.MemStorage
 		pollCount int64 = 1

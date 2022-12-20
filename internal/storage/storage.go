@@ -2,9 +2,9 @@ package storage
 
 import (
 	"math/rand"
+	"net/http"
 	"reflect"
 	"runtime"
-	"strconv"
 )
 
 type Storage interface {
@@ -92,19 +92,17 @@ func (m *MemStorage) GetNameTypeAndValue(val reflect.Value, fieldIndex int) (str
 	return val.Type().Field(fieldIndex).Name, field.Type().String(), field
 }
 
-func (m *MemStorage) SetMetric(s []string) {
-	fValue, err := strconv.ParseFloat(s[2], 64)
-	if err != nil {
-		return
-	}
-
+func (m *MemStorage) SetMetric(fType string, fName string, fValue float64) int {
 	a := reflect.ValueOf(m).Elem()
-	b := a.FieldByName(s[1])
+	b := a.FieldByName(fName)
 
-	if s[0] == "counter" {
-		val := counter(b.Int())
-		b.Set(reflect.ValueOf(val + counter(fValue)))
-	} else {
+	switch fType {
+	case "counter":
+		b.Set(reflect.ValueOf(counter(b.Int()) + counter(fValue)))
+	case "gauge":
 		b.Set(reflect.ValueOf(gauge(fValue)))
+	default:
+		return http.StatusNotImplemented
 	}
+	return http.StatusOK
 }
