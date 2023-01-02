@@ -2,7 +2,6 @@ package storage
 
 import (
 	"fmt"
-	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -40,29 +39,23 @@ var storage = &MemStorage{
 	PollCount:     0,
 }
 
-type (
-	Handler struct{}
-)
+type Handler struct{}
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Path == "/update/" && r.Method == http.MethodPost {
-		h.Update(w, r)
-		return
-	}
-	http.NotFound(w, r)
+	//if r.URL.Path == "/update/" && r.Method == http.MethodPost {
+	h.Update(w, r)
+	return
+	//}
+	//http.NotFound(w, r)
 }
 
 func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
-	contents, err := io.ReadAll(r.Body)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-	}
 
-	values := strings.Split(string(contents), "/")
-	fType := values[0]
-	fName := values[1]
-	fValue, err := strconv.ParseFloat(values[2], 64)
+	values := strings.Split(r.URL.Path, "/")
+	fType := values[2]
+	fName := values[3]
+	fValue, err := strconv.ParseFloat(values[4], 64)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 	}

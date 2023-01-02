@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"fmt"
 	"github.com/dbulyk/metrics-alerting-service/internal/storage"
 	"io"
@@ -48,8 +47,7 @@ func main() {
 				fmt.Fprintf(&builder, "%v/%v/%v",
 					strings.TrimPrefix(mType, "storage."), mName, mValue)
 
-				request, err := http.NewRequest(http.MethodPost, endpoint+"update/",
-					bytes.NewBufferString(builder.String()))
+				request, err := http.NewRequest(http.MethodPost, endpoint+"update/"+builder.String(), nil)
 				if err != nil {
 					fmt.Println(err)
 					os.Exit(1)

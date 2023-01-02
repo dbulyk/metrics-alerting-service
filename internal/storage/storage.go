@@ -93,14 +93,17 @@ func (m *MemStorage) GetNameTypeAndValue(val reflect.Value, fieldIndex int) (str
 }
 
 func (m *MemStorage) SetMetric(fType string, fName string, fValue float64) int {
-	a := reflect.ValueOf(m).Elem()
-	b := a.FieldByName(fName)
+	mem := reflect.ValueOf(m).Elem()
+	field := mem.FieldByName(fName)
+	if !field.IsValid() {
+		return http.StatusNotFound
+	}
 
 	switch fType {
 	case "counter":
-		b.Set(reflect.ValueOf(counter(b.Int()) + counter(fValue)))
+		field.Set(reflect.ValueOf(counter(field.Int()) + counter(fValue)))
 	case "gauge":
-		b.Set(reflect.ValueOf(gauge(fValue)))
+		field.Set(reflect.ValueOf(gauge(fValue)))
 	default:
 		return http.StatusNotImplemented
 	}
