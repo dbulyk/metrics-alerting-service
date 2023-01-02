@@ -52,6 +52,10 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
 	values := strings.Split(r.URL.Path, "/")
+	if len(values) != 5 {
+		w.WriteHeader(http.StatusNotFound)
+	}
+
 	fType := values[2]
 	fName := values[3]
 	fValue, err := strconv.ParseFloat(values[4], 64)
