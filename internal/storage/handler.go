@@ -42,11 +42,10 @@ var storage = &MemStorage{
 type Handler struct{}
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	//if r.URL.Path == "/update/" && r.Method == http.MethodPost {
-	h.Update(w, r)
-	return
-	//}
-	//http.NotFound(w, r)
+	if r.Method == http.MethodPost {
+		h.Update(w, r)
+	}
+	http.NotFound(w, r)
 }
 
 func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
