@@ -1,13 +1,14 @@
-package storage
+package handlers
 
 import (
 	"fmt"
+	"github.com/dbulyk/metrics-alerting-service/internal/storage"
 	"net/http"
 	"strconv"
 	"strings"
 )
 
-var storage = &MemStorage{
+var mem = &storage.MemStorage{
 	Alloc:         0,
 	BuckHashSys:   0,
 	Frees:         0,
@@ -44,6 +45,7 @@ type Handler struct{}
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodPost {
 		h.Update(w, r)
+		return
 	}
 	http.NotFound(w, r)
 }
@@ -54,6 +56,7 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 	values := strings.Split(r.URL.Path, "/")
 	if len(values) != 5 {
 		w.WriteHeader(http.StatusNotFound)
+		return
 	}
 
 	fType := values[2]
@@ -61,10 +64,11 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 	fValue, err := strconv.ParseFloat(values[4], 64)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
+		return
 	}
 
-	statusCode := storage.SetMetric(fType, fName, fValue)
-	fmt.Print(storage)
+	statusCode := mem.SetMetric(fType, fName, fValue)
+	fmt.Print(mem)
 
 	w.WriteHeader(statusCode)
 }

@@ -1,13 +1,13 @@
 package main
 
 import (
-	"github.com/dbulyk/metrics-alerting-service/internal/storage"
+	"github.com/dbulyk/metrics-alerting-service/internal/handlers"
 	"log"
 	"net/http"
 )
 
 func main() {
-	hStorage := &storage.Handler{}
+	hStorage := &handlers.Handler{}
 	http.Handle("/update/", hStorage)
-	log.Fatal(http.ListenAndServe("localhost:8080", nil))
+	log.Fatal(http.ListenAndServe("127.0.0.1:8080", nil))
 }
