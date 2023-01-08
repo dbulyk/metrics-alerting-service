@@ -8,37 +8,7 @@ import (
 	"strings"
 )
 
-var mem = &storage.MemStorage{
-	Alloc:         0,
-	BuckHashSys:   0,
-	Frees:         0,
-	GcCPUFraction: 0,
-	GcSys:         0,
-	HeapAlloc:     0,
-	HeapIdle:      0,
-	HeapInuse:     0,
-	HeapObjects:   0,
-	HeapReleased:  0,
-	HeapSys:       0,
-	LastGC:        0,
-	Lookups:       0,
-	MCacheInuse:   0,
-	MCacheSys:     0,
-	MSpanInuse:    0,
-	MSpanSys:      0,
-	Mallocs:       0,
-	NextGC:        0,
-	NumForcedGC:   0,
-	NumGC:         0,
-	OtherSys:      0,
-	PauseTotalNs:  0,
-	StackInuse:    0,
-	StackSys:      0,
-	Sys:           0,
-	TotalAlloc:    0,
-	RandomValue:   0,
-	PollCount:     0,
-}
+var mem storage.MemStorage
 
 type Handler struct{}
 
@@ -59,16 +29,16 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fType := values[2]
-	fName := values[3]
-	fValue, err := strconv.ParseFloat(values[4], 64)
+	mType := values[2]
+	mName := values[3]
+	mValue, err := strconv.ParseFloat(values[4], 64)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
-	statusCode := mem.SetMetric(fType, fName, fValue)
-	fmt.Print(mem)
+	statusCode := mem.SetMetric(mType, mName, mValue)
+	fmt.Print(mem.Metrics["PollCount"])
 
 	w.WriteHeader(statusCode)
 }

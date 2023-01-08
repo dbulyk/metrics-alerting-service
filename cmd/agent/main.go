@@ -18,16 +18,14 @@ const (
 
 func main() {
 	var (
-		mName,
-		mType string
-		mValue   interface{}
+		mType    string
 		endpoint = "http://localhost:8080/"
 
 		m         storage.MemStorage
 		pollCount int64 = 1
 	)
 
-	ch := make(chan storage.MemStorage)
+	ch := make(chan map[string]interface{})
 	pollTicker := time.NewTicker(pollInterval)
 	reportTicker := time.NewTicker(reportInterval)
 
@@ -36,16 +34,15 @@ func main() {
 		select {
 		case <-pollTicker.C:
 			go m.Collect(ch, pollCount)
-			m = <-ch
+			m.Metrics = <-ch
 			pollCount += 1
 		case <-reportTicker.C:
-			val := reflect.ValueOf(m)
-			for fieldIndex := 0; fieldIndex < val.NumField(); fieldIndex++ {
-				mName, mType, mValue = m.GetNameTypeAndValue(val, fieldIndex)
+			for key, value := range m.Metrics {
+				mType = strings.TrimPrefix(reflect.TypeOf(m.Metrics[key]).String(), "storage.")
 
 				builder := strings.Builder{}
 				fmt.Fprintf(&builder, "%v/%v/%v",
-					strings.TrimPrefix(mType, "storage."), mName, mValue)
+					mType, key, value)
 
 				request, err := http.NewRequest(http.MethodPost, endpoint+"update/"+builder.String(), nil)
 				if err != nil {
