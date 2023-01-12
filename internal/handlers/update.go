@@ -10,9 +10,9 @@ import (
 
 var mem storage.MemStorage
 
-type Handler struct{}
+type UpdateHandler struct{}
 
-func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (h *UpdateHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodPost {
 		h.Update(w, r)
 		return
@@ -20,12 +20,12 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	http.NotFound(w, r)
 }
 
-func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
+func (h *UpdateHandler) Update(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
 	values := strings.Split(r.URL.Path, "/")
 	if len(values) != 5 {
-		w.WriteHeader(http.StatusNotFound)
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 

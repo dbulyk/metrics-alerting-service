@@ -7,7 +7,6 @@ import (
 )
 
 func main() {
-	hStorage := &handlers.Handler{}
-	http.Handle("/update/", hStorage)
+	http.Handle("/update/", new(handlers.UpdateHandler))
 	log.Fatal(http.ListenAndServe("127.0.0.1:8080", nil))
 }

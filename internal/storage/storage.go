@@ -20,12 +20,12 @@ type (
 	}
 )
 
-func (m *MemStorage) Collect(ch chan map[string]interface{}, count int64) {
-	var (
-		rtm runtime.MemStats
-		mu  sync.Mutex
-	)
+var (
+	rtm runtime.MemStats
+	mu  sync.Mutex
+)
 
+func (m *MemStorage) Collect(ch chan map[string]interface{}, count int64) {
 	mu.Lock()
 	defer mu.Unlock()
 	runtime.ReadMemStats(&rtm)
