@@ -25,7 +25,7 @@ func TestUpdateHandler_Update(t *testing.T) {
 		},
 		{
 			name:    "Неверное количество переданных аргументов",
-			request: "/update/testCount/100",
+			request: "/update/counter/testCount/",
 			want: want{
 				code: 400,
 			},

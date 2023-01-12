@@ -25,7 +25,7 @@ func (h *UpdateHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 	values := strings.Split(r.URL.Path, "/")
 	if len(values) != 5 {
-		w.WriteHeader(http.StatusBadRequest)
+		w.WriteHeader(http.StatusNotFound)
 		return
 	}
 
