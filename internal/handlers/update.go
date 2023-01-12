@@ -23,7 +23,7 @@ func (h *UpdateHandler) Update(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
 	values := strings.Split(r.URL.Path, "/")
-	if len(values) != 5 || len(values) == 5 && values[4] == "" {
+	if len(values) != 5 {
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}

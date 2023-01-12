@@ -24,10 +24,17 @@ func TestUpdateHandler_Update(t *testing.T) {
 			},
 		},
 		{
-			name:    "Неверное количество переданных аргументов",
+			name:    "Пустой id",
 			request: "/update/counter/testCount/",
 			want: want{
 				code: 400,
+			},
+		},
+		{
+			name:    "Неверное количество переданных аргументов",
+			request: "/update/counter/",
+			want: want{
+				code: 404,
 			},
 		},
 	}
@@ -38,6 +45,7 @@ func TestUpdateHandler_Update(t *testing.T) {
 			h := &UpdateHandler{}
 			h.ServeHTTP(w, request)
 			res := w.Result()
+			defer res.Body.Close()
 
 			assert.Equalf(t, tt.want.code, res.StatusCode,
 				"Полученный статус код (%d) не соответствует ожидаемому (%d)", res.StatusCode, tt.want.code)
