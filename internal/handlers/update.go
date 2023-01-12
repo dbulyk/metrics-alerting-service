@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"fmt"
 	"github.com/dbulyk/metrics-alerting-service/internal/storage"
 	"net/http"
 	"strconv"
@@ -24,7 +23,7 @@ func (h *UpdateHandler) Update(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
 	values := strings.Split(r.URL.Path, "/")
-	if len(values) != 5 {
+	if len(values) != 5 || len(values) == 5 && values[4] == "" {
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
@@ -38,7 +37,5 @@ func (h *UpdateHandler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 
 	statusCode := mem.SetMetric(mType, mName, mValue)
-	fmt.Print(mem.Metrics["PollCount"])
-
 	w.WriteHeader(statusCode)
 }
