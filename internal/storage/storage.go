@@ -9,7 +9,9 @@ import (
 
 type Storage interface {
 	Collect(ch chan map[string]interface{}, count int64)
-	SetMetric(mType string, mName string, mValue float64) (status int)
+	Set(mType string, mName string, mValue float64) (status int)
+	Get(mType string, mName string) interface{}
+	GetAll() map[string]interface{}
 }
 
 type (
@@ -63,7 +65,7 @@ func (m *MemStorage) Collect(ch chan map[string]interface{}, count int64) {
 	}
 }
 
-func (m *MemStorage) SetMetric(mType string, mName string, mValue float64) (status int) {
+func (m *MemStorage) Set(mType string, mName string, mValue float64) (status int) {
 	if m.Metrics == nil {
 		m.Metrics = make(map[string]interface{}, 5)
 	}
@@ -81,4 +83,13 @@ func (m *MemStorage) SetMetric(mType string, mName string, mValue float64) (stat
 		return http.StatusNotImplemented
 	}
 	return http.StatusOK
+}
+
+func (m *MemStorage) Get(mType string, mName string) interface{} {
+	r := m.Metrics[mName]
+	return r
+}
+
+func (m *MemStorage) GetAll() map[string]interface{} {
+	return m.Metrics
 }
