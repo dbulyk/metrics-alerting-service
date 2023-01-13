@@ -97,7 +97,7 @@ func TestMemStorage_SetMetric(t *testing.T) {
 				Metrics: tt.fields.Metrics,
 			}
 
-			gotStatus := m.Set(tt.args.mType, tt.args.mName, tt.args.mValue)
+			gotStatus := m.SetMetric(tt.args.mType, tt.args.mName, tt.args.mValue)
 			assert.Equalf(t, tt.wantStatus, gotStatus,
 				"Полученный статус код (%d) не соответствует ожидаемому (%d)", gotStatus, tt.wantStatus)
 
