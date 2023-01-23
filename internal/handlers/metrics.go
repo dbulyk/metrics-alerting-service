@@ -2,14 +2,14 @@ package handlers
 
 import (
 	"fmt"
-	"github.com/dbulyk/metrics-alerting-service/internal/storage"
+	"github.com/dbulyk/metrics-alerting-service/internal/store"
 	"github.com/go-chi/chi/v5"
 	"log"
 	"net/http"
 	"strconv"
 )
 
-var mem storage.MemStorage
+var mem store.MemStorage
 
 func Update(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
@@ -28,15 +28,18 @@ func Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	statusCode := mem.Set(mType, mName, mValue)
-	fmt.Print(statusCode)
-	w.WriteHeader(statusCode)
+	err = mem.SetMetric(mName, mType, mValue)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+	}
+	w.WriteHeader(http.StatusOK)
 }
 
 func GetAll(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 	w.Header().Set("Content-Type", "text/plain")
-	_, err := fmt.Fprint(w, mem.GetAll())
+	listMetric, _ := mem.ListMetrics()
+	_, err := fmt.Fprint(w, listMetric)
 	if err != nil {
 		log.Print(err)
 		return
@@ -55,9 +58,12 @@ func Get(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "text/plain")
-	_, err := fmt.Fprint(w, mem.Get(mType, mName))
+	metric, err := mem.GetMetric(mName, mType)
 	if err != nil {
-		log.Print(err)
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprint(w, err.Error())
 		return
 	}
+
+	fmt.Fprint(w, metric.Value)
 }
