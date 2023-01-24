@@ -2,12 +2,14 @@ package main
 
 import (
 	"fmt"
-	"github.com/dbulyk/metrics-alerting-service/internal/storage"
+	"github.com/dbulyk/metrics-alerting-service/internal/models"
 	"io"
+	"math/rand"
 	"net/http"
 	"os"
-	"reflect"
+	"runtime"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -17,22 +19,27 @@ const (
 	endpoint       = "http://localhost:8080/"
 )
 
+var (
+	rtm runtime.MemStats
+	mu  sync.Mutex
+)
+
 func main() {
-	var m storage.MemStorage
-	ch := make(chan map[string]interface{})
+	var metrics []models.Metric
+	ch := make(chan []models.Metric)
 	pollTicker := time.NewTicker(pollInterval)
 	reportTicker := time.NewTicker(reportInterval)
 	client := &http.Client{}
 
-	collectAndSendMetrics(ch, pollTicker, reportTicker, client, &m)
+	collectAndSendMetrics(ch, pollTicker, reportTicker, client, metrics)
 }
 
 func collectAndSendMetrics(
-	ch chan map[string]interface{},
+	ch chan []models.Metric,
 	pollTicker *time.Ticker,
 	reportTicker *time.Ticker,
 	client *http.Client,
-	m *storage.MemStorage,
+	metrics []models.Metric,
 ) {
 	var (
 		pollCount int64 = 1
@@ -41,12 +48,12 @@ func collectAndSendMetrics(
 	for {
 		select {
 		case <-pollTicker.C:
-			go m.Collect(ch, pollCount)
-			m.Metrics = <-ch
+			go collectMetrics(ch, pollCount)
+			metrics = <-ch
 			pollCount += 1
 		case <-reportTicker.C:
-			for key, value := range m.Metrics {
-				request := createRequestToMetricsUpdate(key, value, builder, m)
+			for _, m := range metrics {
+				request := createRequestToMetricsUpdate(m.Name, m.Type, m.Value, builder)
 				response, err := client.Do(request)
 				if err != nil {
 					fmt.Println(err)
@@ -65,11 +72,10 @@ func collectAndSendMetrics(
 	}
 }
 
-func createRequestToMetricsUpdate(key string, value interface{}, builder strings.Builder, m *storage.MemStorage) *http.Request {
-	mType := strings.TrimPrefix(reflect.TypeOf(m.Metrics[key]).String(), "storage.")
+func createRequestToMetricsUpdate(key string, mType string, value interface{}, builder strings.Builder) *http.Request {
+	defer builder.Reset()
 
-	builder.Reset()
-	fmt.Fprintf(&builder, "%v/%v/%v",
+	fmt.Fprintf(&builder, "%s/%s/%v",
 		mType, key, value)
 
 	request, err := http.NewRequest(http.MethodPost, endpoint+"update/"+builder.String(), nil)
@@ -79,4 +85,158 @@ func createRequestToMetricsUpdate(key string, value interface{}, builder strings
 	}
 	request.Header.Add("Content-Type", "text/plain")
 	return request
+}
+
+func collectMetrics(ch chan []models.Metric, count int64) {
+	mu.Lock()
+	defer mu.Unlock()
+	runtime.ReadMemStats(&rtm)
+
+	ch <- []models.Metric{
+		{
+			Name:  "Alloc",
+			Type:  "gauge",
+			Value: models.Gauge(rtm.Alloc),
+		},
+		{
+			Name:  "BuckHashSys",
+			Type:  "gauge",
+			Value: models.Gauge(rtm.BuckHashSys),
+		},
+		{
+			Name:  "Frees",
+			Type:  "gauge",
+			Value: models.Gauge(rtm.Frees),
+		},
+		{
+			Name:  "GcCPUFraction",
+			Type:  "gauge",
+			Value: models.Gauge(rtm.GCCPUFraction),
+		},
+		{
+			Name:  "GcSys",
+			Type:  "gauge",
+			Value: models.Gauge(rtm.GCSys),
+		},
+		{
+			Name:  "HeapAlloc",
+			Type:  "gauge",
+			Value: models.Gauge(rtm.HeapAlloc),
+		},
+		{
+			Name:  "HeapIdle",
+			Type:  "gauge",
+			Value: models.Gauge(rtm.HeapIdle),
+		},
+		{
+			Name:  "HeapInuse",
+			Type:  "gauge",
+			Value: models.Gauge(rtm.HeapInuse),
+		},
+		{
+			Name:  "HeapObjects",
+			Type:  "gauge",
+			Value: models.Gauge(rtm.HeapObjects),
+		},
+		{
+			Name:  "HeapReleased",
+			Type:  "gauge",
+			Value: models.Gauge(rtm.HeapReleased),
+		},
+		{
+			Name:  "HeapSys",
+			Type:  "gauge",
+			Value: models.Gauge(rtm.HeapSys),
+		},
+		{
+			Name:  "LastGC",
+			Type:  "gauge",
+			Value: models.Gauge(rtm.LastGC),
+		},
+		{
+			Name:  "Lookups",
+			Type:  "gauge",
+			Value: models.Gauge(rtm.Lookups),
+		},
+		{
+			Name:  "MCacheInuse",
+			Type:  "gauge",
+			Value: models.Gauge(rtm.MCacheInuse),
+		},
+		{
+			Name:  "MCacheSys",
+			Type:  "gauge",
+			Value: models.Gauge(rtm.MCacheSys),
+		},
+		{
+			Name:  "MSpanInuse",
+			Type:  "gauge",
+			Value: models.Gauge(rtm.MSpanInuse),
+		},
+		{
+			Name:  "MSpanSys",
+			Type:  "gauge",
+			Value: models.Gauge(rtm.MSpanSys),
+		},
+		{
+			Name:  "Mallocs",
+			Type:  "gauge",
+			Value: models.Gauge(rtm.Mallocs),
+		},
+		{
+			Name:  "NextGC",
+			Type:  "gauge",
+			Value: models.Gauge(rtm.NextGC),
+		},
+		{
+			Name:  "NumForcedGC",
+			Type:  "gauge",
+			Value: models.Gauge(rtm.NumForcedGC),
+		},
+		{
+			Name:  "NumGC",
+			Type:  "gauge",
+			Value: models.Gauge(rtm.NumGC),
+		},
+		{
+			Name:  "OtherSys",
+			Type:  "gauge",
+			Value: models.Gauge(rtm.OtherSys),
+		},
+		{
+			Name:  "PauseTotalNs",
+			Type:  "gauge",
+			Value: models.Gauge(rtm.PauseTotalNs),
+		},
+		{
+			Name:  "StackInuse",
+			Type:  "gauge",
+			Value: models.Gauge(rtm.StackInuse),
+		},
+		{
+			Name:  "StackSys",
+			Type:  "gauge",
+			Value: models.Gauge(rtm.StackSys),
+		},
+		{
+			Name:  "Sys",
+			Type:  "gauge",
+			Value: models.Gauge(rtm.Sys),
+		},
+		{
+			Name:  "TotalAlloc",
+			Type:  "gauge",
+			Value: models.Gauge(rtm.TotalAlloc),
+		},
+		{
+			Name:  "PollCount",
+			Type:  "counter",
+			Value: models.Counter(count),
+		},
+		{
+			Name:  "RandomValue",
+			Type:  "gauge",
+			Value: models.Gauge(rand.Float64()),
+		},
+	}
 }

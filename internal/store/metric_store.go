@@ -22,6 +22,17 @@ func (s *MemStorage) ListMetrics() ([]*models.Metric, error) {
 }
 
 func (s *MemStorage) SetMetric(mName string, mType string, mValue float64) error {
+	for _, m := range metrics {
+		if m.Name == mName && m.Type == mType {
+			if m.Type == "counter" {
+				m.Value = m.Value.(models.Counter) + models.Counter(mValue)
+			} else {
+				m.Value = models.Gauge(mValue)
+			}
+			return nil
+		}
+	}
+
 	var value interface{}
 
 	switch mType {
@@ -31,13 +42,6 @@ func (s *MemStorage) SetMetric(mName string, mType string, mValue float64) error
 		value = models.Counter(mValue)
 	default:
 		return errors.New("такого типа метрики не существует")
-	}
-
-	for _, m := range metrics {
-		if m.Name == mName && m.Type == mType {
-			m.Value = value
-			return nil
-		}
 	}
 
 	metrics = append(metrics, &models.Metric{
