@@ -30,7 +30,8 @@ func Update(w http.ResponseWriter, r *http.Request) {
 
 	err = mem.SetMetric(mName, mType, mValue)
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
+		w.WriteHeader(http.StatusNotImplemented)
+		w.Write([]byte(err.Error()))
 		return
 	}
 	w.WriteHeader(http.StatusOK)
