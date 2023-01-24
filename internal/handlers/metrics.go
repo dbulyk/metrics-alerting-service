@@ -62,7 +62,7 @@ func Get(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain")
 	metric, err := mem.GetMetric(mName, mType)
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
+		w.WriteHeader(http.StatusNotFound)
 		fmt.Fprint(w, err.Error())
 		return
 	}
