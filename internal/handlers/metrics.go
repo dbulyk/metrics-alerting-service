@@ -58,17 +58,18 @@ func Update(w http.ResponseWriter, r *http.Request) {
 func GetAll(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 	metrics, _ := mem.ListMetrics()
-	tmpl, _ := template.ParseFiles("templates/index.gohtml")
-	err := tmpl.Execute(w, metrics)
+
+	tmpl, err := template.ParseFiles("templates/index.gohtml")
 	if err != nil {
 		log.Print(err)
 		return
 	}
-	//_, err := fmt.Fprint(w, metrics)
-	//if err != nil {
-	//	log.Print(err)
-	//	return
-	//}
+
+	err = tmpl.Execute(w, metrics)
+	if err != nil {
+		log.Print(err)
+		return
+	}
 }
 
 func Get(w http.ResponseWriter, r *http.Request) {

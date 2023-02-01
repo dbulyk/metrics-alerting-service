@@ -6,8 +6,15 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 )
+
+func TestMain(m *testing.M) {
+	os.Chdir("../../")
+	code := m.Run()
+	os.Exit(code)
+}
 
 func testRequest(t *testing.T, ts *httptest.Server, method, path string) (int, string) {
 	req, err := http.NewRequest(method, ts.URL+path, nil)
@@ -36,9 +43,9 @@ func TestRouter(t *testing.T) {
 	assert.Equal(t, http.StatusOK, statusCode)
 	assert.Equal(t, "123", body)
 
-	//statusCode, body = testRequest(t, ts, "GET", "/")
-	//assert.Equal(t, http.StatusOK, statusCode)
-	//assert.Len(t, body, 1)
+	statusCode, body = testRequest(t, ts, "GET", "/")
+	assert.Equal(t, http.StatusOK, statusCode)
+	assert.Contains(t, body, "testGauge")
 }
 
 func TestUpdate(t *testing.T) {
@@ -85,6 +92,6 @@ func TestGet(t *testing.T) {
 	assert.Equal(t, http.StatusOK, statusCode)
 	assert.Equal(t, "123.15", body)
 
-	statusCode, body = testRequest(t, ts, "GET", "/value/gauge/unknown")
+	statusCode, _ = testRequest(t, ts, "GET", "/value/gauge/unknown")
 	assert.Equal(t, http.StatusNotFound, statusCode)
 }
