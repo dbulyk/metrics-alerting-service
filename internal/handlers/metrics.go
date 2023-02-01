@@ -4,12 +4,30 @@ import (
 	"fmt"
 	"github.com/dbulyk/metrics-alerting-service/internal/store"
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
+	"html/template"
 	"log"
 	"net/http"
 	"strconv"
 )
 
 var mem store.MemStorage
+
+func MetricsRouter() chi.Router {
+	r := chi.NewRouter()
+
+	r.Use(middleware.Logger)
+	r.Use(middleware.RequestID)
+	r.Use(middleware.RealIP)
+	r.Use(middleware.Recoverer)
+
+	r.Route("/", func(r chi.Router) {
+		r.Get("/", GetAll)
+		r.Get("/value/{type}/{name}", Get)
+		r.Post("/update/{type}/{name}/{value}", Update)
+	})
+	return r
+}
 
 func Update(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
@@ -39,13 +57,18 @@ func Update(w http.ResponseWriter, r *http.Request) {
 
 func GetAll(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
-	w.Header().Set("Content-Type", "text/plain")
-	listMetric, _ := mem.ListMetrics()
-	_, err := fmt.Fprint(w, listMetric)
+	metrics, _ := mem.ListMetrics()
+	tmpl, _ := template.ParseFiles("templates/index.gohtml")
+	err := tmpl.Execute(w, metrics)
 	if err != nil {
 		log.Print(err)
 		return
 	}
+	//_, err := fmt.Fprint(w, metrics)
+	//if err != nil {
+	//	log.Print(err)
+	//	return
+	//}
 }
 
 func Get(w http.ResponseWriter, r *http.Request) {
