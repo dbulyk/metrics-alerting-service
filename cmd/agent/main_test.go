@@ -13,7 +13,7 @@ import (
 
 func TestCreateRequestToMetricsUpdate(t *testing.T) {
 	builder := strings.Builder{}
-	request := createRequestToMetricsUpdate("key", "gauge", 123, builder)
+	request, _ := createRequestToMetricsUpdate("key", "gauge", 123, builder)
 
 	expectedEndpoint := endpoint + "update/gauge/key/123"
 	assert.Equalf(t, expectedEndpoint, request.URL.String(), "олжидался эндпоинт %s, получен %s", expectedEndpoint, request.URL.String())

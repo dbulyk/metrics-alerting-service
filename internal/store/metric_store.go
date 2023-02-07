@@ -3,6 +3,7 @@ package store
 import (
 	"errors"
 	"github.com/dbulyk/metrics-alerting-service/internal/models"
+	"sync"
 )
 
 var metrics []*models.Metric
@@ -14,14 +15,17 @@ type MetricStore interface {
 }
 
 type MemStorage struct {
+	sync.Mutex
 	MetricStore
 }
 
-func (s *MemStorage) ListMetrics() ([]*models.Metric, error) {
+func (ms *MemStorage) ListMetrics() ([]*models.Metric, error) {
 	return metrics, nil
 }
 
-func (s *MemStorage) SetMetric(mName string, mType string, mValue float64) error {
+func (ms *MemStorage) SetMetric(mName string, mType string, mValue float64) error {
+	ms.Lock()
+	defer ms.Unlock()
 	for _, m := range metrics {
 		if m.Name == mName && m.Type == mType {
 			if m.Type == "counter" {
@@ -52,11 +56,14 @@ func (s *MemStorage) SetMetric(mName string, mType string, mValue float64) error
 	return nil
 }
 
-func (s *MemStorage) GetMetric(mName string, mType string) (*models.Metric, error) {
+func (ms *MemStorage) GetMetric(mName string, mType string) (*models.Metric, error) {
+	ms.Lock()
 	for _, m := range metrics {
 		if m.Name == mName && m.Type == mType {
+			ms.Unlock()
 			return m, nil
 		}
 	}
+	ms.Unlock()
 	return nil, errors.New("метрики с такими параметрами не существует")
 }

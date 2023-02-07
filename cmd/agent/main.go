@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"github.com/dbulyk/metrics-alerting-service/internal/models"
 	"io"
+	"log"
 	"math/rand"
 	"net/http"
-	"os"
 	"runtime"
 	"strings"
 	"sync"
@@ -32,6 +32,8 @@ func main() {
 	client := &http.Client{}
 
 	collectAndSendMetrics(ch, pollTicker, reportTicker, client, metrics)
+	reportTicker.Stop()
+	pollTicker.Stop()
 }
 
 func collectAndSendMetrics(
@@ -52,39 +54,46 @@ func collectAndSendMetrics(
 			metrics = <-ch
 			pollCount += 1
 		case <-reportTicker.C:
+			isError := false
 			for _, m := range metrics {
-				request := createRequestToMetricsUpdate(m.Name, m.Type, m.Value, builder)
+				request, err := createRequestToMetricsUpdate(m.Name, m.Type, m.Value, builder)
+				if err != nil {
+					isError = true
+					log.Printf("возникла ошибка при создании запроса. Ошибка: %s", err.Error())
+				}
+
 				response, err := client.Do(request)
 				if err != nil {
-					fmt.Println(err)
-					os.Exit(1)
+					isError = true
+					log.Printf("возникла ошибка при отправке запроса. Ошибка: %s", err.Error())
 				}
 
 				_, err = io.ReadAll(response.Body)
-				response.Body.Close()
 				if err != nil {
-					fmt.Println(err)
-					os.Exit(1)
+					isError = true
+					log.Printf("возникла ошибка при чтении ответа. Ошибка: %s", err.Error())
 				}
+				response.Body.Close()
 			}
-			pollCount = 1
+
+			if !isError {
+				pollCount = 1
+			}
 		}
 	}
 }
 
-func createRequestToMetricsUpdate(key string, mType string, value interface{}, builder strings.Builder) *http.Request {
-	defer builder.Reset()
-
+func createRequestToMetricsUpdate(key string, mType string, value interface{}, builder strings.Builder) (*http.Request, error) {
 	fmt.Fprintf(&builder, "%s/%s/%v",
 		mType, key, value)
 
 	request, err := http.NewRequest(http.MethodPost, endpoint+"update/"+builder.String(), nil)
 	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+		return nil, err
 	}
 	request.Header.Add("Content-Type", "text/plain")
-	return request
+	builder.Reset()
+	return request, nil
 }
 
 func collectMetrics(ch chan []models.Metric, count int64) {
