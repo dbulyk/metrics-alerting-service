@@ -60,12 +60,14 @@ func collectAndSendMetrics(
 				if err != nil {
 					isError = true
 					log.Printf("возникла ошибка при создании запроса. Ошибка: %s", err.Error())
+					continue
 				}
 
 				response, err := client.Do(request)
 				if err != nil {
 					isError = true
 					log.Printf("возникла ошибка при отправке запроса. Ошибка: %s", err.Error())
+					continue
 				}
 
 				_, err = io.ReadAll(response.Body)
