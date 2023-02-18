@@ -6,7 +6,7 @@ import (
 	"sync"
 )
 
-var metrics []*models.Metric
+var metrics = make([]*models.Metric, 0, 50)
 
 type MetricStore interface {
 	SetMetric(mName string, mType string, mValue float64) error
@@ -16,11 +16,14 @@ type MetricStore interface {
 
 type MemStorage struct {
 	sync.Mutex
-	MetricStore
 }
 
 func (ms *MemStorage) ListMetrics() ([]*models.Metric, error) {
-	return metrics, nil
+	ms.Lock()
+	var listMetrics = make([]*models.Metric, len(metrics))
+	copy(listMetrics, metrics)
+	ms.Unlock()
+	return listMetrics, nil
 }
 
 func (ms *MemStorage) SetMetric(mName string, mType string, mValue float64) error {

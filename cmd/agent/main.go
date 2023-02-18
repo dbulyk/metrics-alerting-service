@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"runtime"
 	"strings"
-	"sync"
 	"time"
 )
 
@@ -21,11 +20,10 @@ const (
 
 var (
 	rtm runtime.MemStats
-	mu  sync.Mutex
 )
 
 func main() {
-	var metrics []models.Metric
+	var metrics = make([]models.Metric, 0, 50)
 	ch := make(chan []models.Metric)
 	pollTicker := time.NewTicker(pollInterval)
 	reportTicker := time.NewTicker(reportInterval)
@@ -99,8 +97,6 @@ func createRequestToMetricsUpdate(key string, mType string, value interface{}, b
 }
 
 func collectMetrics(ch chan []models.Metric, count int64) {
-	mu.Lock()
-	defer mu.Unlock()
 	runtime.ReadMemStats(&rtm)
 
 	ch <- []models.Metric{
