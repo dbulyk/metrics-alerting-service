@@ -6,63 +6,61 @@ import (
 	"sync"
 )
 
-var metrics = make([]*models.Metric, 0, 50)
+var metrics = make([]*models.Metrics, 0, 50)
 
 type MetricStore interface {
-	SetMetric(mName string, mType string, mValue float64) error
-	GetMetric(mName string, mType string) (*models.Metric, error)
-	ListMetrics() ([]*models.Metric, error)
+	SetMetric(id string, mType string, value *float64, delta *int64) (*models.Metrics, error)
+	GetMetric(mName string, mType string) (*models.Metrics, error)
+	ListMetrics() ([]*models.Metrics, error)
 }
 
 type MemStorage struct {
 	sync.Mutex
 }
 
-func (ms *MemStorage) ListMetrics() ([]*models.Metric, error) {
+func (ms *MemStorage) ListMetrics() ([]*models.Metrics, error) {
 	ms.Lock()
-	var listMetrics = make([]*models.Metric, len(metrics))
+	var listMetrics = make([]*models.Metrics, len(metrics))
 	copy(listMetrics, metrics)
 	ms.Unlock()
 	return listMetrics, nil
 }
 
-func (ms *MemStorage) SetMetric(mName string, mType string, mValue float64) error {
+func (ms *MemStorage) SetMetric(id string, mType string, value *float64, delta *int64) (*models.Metrics, error) {
 	ms.Lock()
 	defer ms.Unlock()
+
+	if mType != "counter" && mType != "gauge" {
+		return nil, errors.New("такого типа метрик не существует")
+	}
+
 	for _, m := range metrics {
-		if m.Name == mName && m.Type == mType {
-			if m.Type == "counter" {
-				m.Value = m.Value.(models.Counter) + models.Counter(mValue)
+		if m.ID == id && m.MType == mType {
+			if m.MType == "counter" {
+				d := *m.Delta + *delta
+				m.Delta = &d
 			} else {
-				m.Value = models.Gauge(mValue)
+				m.Value = value
 			}
-			return nil
+			return m, nil
 		}
 	}
 
-	var value interface{}
-
-	switch mType {
-	case "gauge":
-		value = models.Gauge(mValue)
-	case "counter":
-		value = models.Counter(mValue)
-	default:
-		return errors.New("такого типа метрики не существует")
+	m := &models.Metrics{
+		ID:    id,
+		MType: mType,
+		Value: value,
+		Delta: delta,
 	}
 
-	metrics = append(metrics, &models.Metric{
-		Name:  mName,
-		Type:  mType,
-		Value: value,
-	})
-	return nil
+	metrics = append(metrics, m)
+	return m, nil
 }
 
-func (ms *MemStorage) GetMetric(mName string, mType string) (*models.Metric, error) {
+func (ms *MemStorage) GetMetric(id string, mType string) (*models.Metrics, error) {
 	ms.Lock()
 	for _, m := range metrics {
-		if m.Name == mName && m.Type == mType {
+		if m.ID == id && m.MType == mType {
 			ms.Unlock()
 			return m, nil
 		}

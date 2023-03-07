@@ -1,7 +1,9 @@
 package handlers
 
 import (
+	"encoding/json"
 	"fmt"
+	"github.com/dbulyk/metrics-alerting-service/internal/models"
 	"github.com/dbulyk/metrics-alerting-service/internal/store"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -23,14 +25,45 @@ func MetricsRouter() chi.Router {
 
 	r.Route("/", func(r chi.Router) {
 		r.Get("/", GetAll)
-		r.Get("/value/{type}/{name}", Get)
-		r.Post("/update/{type}/{name}/{value}", Update)
+		r.Get("/value/{type}/{name}", GetWithText)
+		r.Post("/value/", GetWithJSON)
+		r.Post("/update/{type}/{name}/{value}", UpdateWithText)
+		r.Post("/update/", UpdateWithJSON)
 	})
 	return r
 }
 
-func Update(w http.ResponseWriter, r *http.Request) {
+func UpdateWithJSON(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
+
+	var m models.Metrics
+
+	if err := json.NewDecoder(r.Body).Decode(&m); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	metric, err := mem.SetMetric(m.ID, m.MType, m.Value, m.Delta)
+	if err != nil {
+		w.WriteHeader(http.StatusNotImplemented)
+		w.Write([]byte(err.Error()))
+		return
+	}
+
+	if err := json.NewEncoder(w).Encode(metric); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+}
+
+func UpdateWithText(w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
+
+	var (
+		mValueFloat *float64
+		mValueInt   *int64
+	)
 
 	mType := chi.URLParam(r, "type")
 	mName := chi.URLParam(r, "name")
@@ -40,13 +73,27 @@ func Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	mValue, err := strconv.ParseFloat(chi.URLParam(r, "value"), 64)
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
+	if mType == "gauge" {
+		value, err := strconv.ParseFloat(chi.URLParam(r, "value"), 64)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		mValueFloat = &value
+	} else if mType == "counter" {
+		value, err := strconv.ParseInt(chi.URLParam(r, "value"), 0, 64)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		mValueInt = &value
+	} else {
+		w.WriteHeader(http.StatusNotImplemented)
+		w.Write([]byte("такого типа метрики не существует"))
 		return
 	}
 
-	err = mem.SetMetric(mName, mType, mValue)
+	_, err := mem.SetMetric(mName, mType, mValueFloat, mValueInt)
 	if err != nil {
 		w.WriteHeader(http.StatusNotImplemented)
 		w.Write([]byte(err.Error()))
@@ -72,7 +119,32 @@ func GetAll(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func Get(w http.ResponseWriter, r *http.Request) {
+func GetWithJSON(w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
+
+	var m models.Metrics
+
+	if err := json.NewDecoder(r.Body).Decode(&m); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	metric, err := mem.GetMetric(m.ID, m.MType)
+	if err != nil {
+		w.WriteHeader(http.StatusNotFound)
+		w.Write([]byte(err.Error()))
+		return
+	}
+
+	if err := json.NewEncoder(w).Encode(metric); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
+func GetWithText(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
 	mType := chi.URLParam(r, "type")
@@ -91,5 +163,11 @@ func Get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fmt.Fprint(w, metric.Value)
+	if mType == "counter" {
+		fmt.Fprint(w, *metric.Delta)
+	} else {
+		fmt.Fprint(w, *metric.Value)
+	}
+
+	w.WriteHeader(http.StatusOK)
 }

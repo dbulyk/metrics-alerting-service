@@ -7,11 +7,11 @@
 <body>
 <table>
     <thead>
-        <tr><th>Название</th><th>Тип</th><th>Значение</th></tr>
+        <tr><th>Название</th><th>Тип</th><th>Value</th><th>Delta</th></tr>
     </thead>
     <tbody>
     {{range .}}
-        <tr><td>{{.Name}}</td><td>{{.Type}}</td><td>{{.Value}}</td></tr>
+        <tr><td>{{.ID}}</td><td>{{.MType}}</td><td>{{.Value}}</td><td>{{.Delta}}</td></tr>
     {{end}}
     </tbody>
 </table>

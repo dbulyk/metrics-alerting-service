@@ -5,31 +5,39 @@ import (
 	"github.com/jarcoal/httpmock"
 	"github.com/stretchr/testify/assert"
 	"net/http"
-	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 )
 
 func TestCreateRequestToMetricsUpdate(t *testing.T) {
-	builder := strings.Builder{}
-	request, _ := createRequestToMetricsUpdate("key", "gauge", 123, builder)
+	val := 8.18
+	metric := models.Metrics{
+		ID:    "test",
+		MType: "gauge",
+		Delta: nil,
+		Value: &val,
+	}
+	request, err := createRequestToMetricsUpdate(metric)
 
-	expectedEndpoint := endpoint + "update/gauge/key/123"
-	assert.Equalf(t, expectedEndpoint, request.URL.String(), "олжидался эндпоинт %s, получен %s", expectedEndpoint, request.URL.String())
+	expectedEndpoint := endpoint + "update/"
+	assert.NoErrorf(t, err, "функция не должна была вернуть ошибку, но вернула %s", err)
+	assert.Equalf(t, expectedEndpoint, request.URL.String(), "ожидался эндпоинт %s, получен %s", expectedEndpoint, request.URL.String())
 	assert.Equalf(t, http.MethodPost, request.Method, "ожидаемый метод отправки: %s, получен %s", http.MethodPost, request.Method)
-	assert.Equalf(t, "text/plain", request.Header.Get("Content-Type"), "ожидаемый Content-Type: %s, получен %s", "text/plain", request.Header.Get("Content-Type"))
+	assert.Equalf(t, "application/json", request.Header.Get("Content-Type"), "ожидаемый Content-Type: %s, получен %s", "application/json", request.Header.Get("Content-Type"))
 }
 
 func TestCollectMetrics(t *testing.T) {
-	ch := make(chan []models.Metric)
-	go collectMetrics(ch, 1)
+	ch := make(chan []models.Metrics)
+	f := atomic.Int64{}
+	go collectMetrics(ch, &f)
 
 	metrics := <-ch
 	assert.NotEqual(t, len(metrics), 0, "ожидался набор метрик, но получен пустой ответ")
 
 	for _, m := range metrics {
-		if m.Name == "" || m.Type == "" || m.Value == nil {
+		if m.ID == "" || m.MType == "" || m.Value == nil && m.Delta == nil {
 			t.Errorf("ожидалось что все метрики будут иметь имя, тип и значение, но получено %v", m)
 		}
 	}
@@ -39,14 +47,14 @@ func TestCollectAndSendMetrics(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 
-	httpmock.RegisterResponder("POST", "=~^http://localhost:8080/update/(\\w+)/(\\w+)/(\\d+)",
+	httpmock.RegisterResponder("POST", "http://localhost:8080/update/",
 		httpmock.NewStringResponder(200, ""))
 
-	ch := make(chan []models.Metric)
+	ch := make(chan []models.Metrics)
 	pollTicker := time.NewTicker(time.Millisecond * 10)
 	reportTicker := time.NewTicker(time.Millisecond * 100)
 	client := &http.Client{}
-	var metrics []models.Metric
+	var metrics []models.Metrics
 	var wg sync.WaitGroup
 	wg.Add(1)
 

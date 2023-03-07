@@ -1,14 +1,16 @@
 package main
 
 import (
-	"fmt"
+	"bytes"
+	"encoding/json"
 	"github.com/dbulyk/metrics-alerting-service/internal/models"
 	"io"
 	"log"
+	"math"
 	"math/rand"
 	"net/http"
 	"runtime"
-	"strings"
+	"sync/atomic"
 	"time"
 )
 
@@ -23,8 +25,8 @@ var (
 )
 
 func main() {
-	var metrics = make([]models.Metric, 0, 50)
-	ch := make(chan []models.Metric)
+	var metrics = make([]models.Metrics, 0, 50)
+	ch := make(chan []models.Metrics)
 	pollTicker := time.NewTicker(pollInterval)
 	reportTicker := time.NewTicker(reportInterval)
 	client := &http.Client{}
@@ -35,26 +37,25 @@ func main() {
 }
 
 func collectAndSendMetrics(
-	ch chan []models.Metric,
+	ch chan []models.Metrics,
 	pollTicker *time.Ticker,
 	reportTicker *time.Ticker,
 	client *http.Client,
-	metrics []models.Metric,
+	metrics []models.Metrics,
 ) {
-	var (
-		pollCount int64 = 1
-		builder   strings.Builder
-	)
+	var pollCount atomic.Int64
+	pollCount.Store(1)
+
 	for {
 		select {
 		case <-pollTicker.C:
-			go collectMetrics(ch, pollCount)
+			go collectMetrics(ch, &pollCount)
 			metrics = <-ch
-			pollCount += 1
+			pollCount.Add(1)
 		case <-reportTicker.C:
 			isError := false
 			for _, m := range metrics {
-				request, err := createRequestToMetricsUpdate(m.Name, m.Type, m.Value, builder)
+				request, err := createRequestToMetricsUpdate(m)
 				if err != nil {
 					isError = true
 					log.Printf("возникла ошибка при создании запроса. Ошибка: %s", err.Error())
@@ -77,173 +78,182 @@ func collectAndSendMetrics(
 			}
 
 			if !isError {
-				pollCount = 1
+				pollCount.Swap(1)
 			}
 		}
 	}
 }
 
-func createRequestToMetricsUpdate(key string, mType string, value interface{}, builder strings.Builder) (*http.Request, error) {
-	fmt.Fprintf(&builder, "%s/%s/%v",
-		mType, key, value)
-
-	request, err := http.NewRequest(http.MethodPost, endpoint+"update/"+builder.String(), nil)
+func createRequestToMetricsUpdate(metrics models.Metrics) (*http.Request, error) {
+	jsonData, err := json.Marshal(metrics)
 	if err != nil {
 		return nil, err
 	}
-	request.Header.Add("Content-Type", "text/plain")
-	builder.Reset()
+
+	request, err := http.NewRequest(http.MethodPost, endpoint+"update/", bytes.NewBuffer(jsonData))
+	if err != nil {
+		return nil, err
+	}
+	request.Header.Add("Content-Type", "application/json")
+
 	return request, nil
 }
 
-func collectMetrics(ch chan []models.Metric, count int64) {
+func collectMetrics(ch chan []models.Metrics, count *atomic.Int64) {
 	runtime.ReadMemStats(&rtm)
+	randomValue := rand.Float64()
+	countValue := count.Load()
 
-	ch <- []models.Metric{
+	ch <- []models.Metrics{
 		{
-			Name:  "Alloc",
-			Type:  "gauge",
-			Value: models.Gauge(rtm.Alloc),
+			ID:    "Alloc",
+			MType: "gauge",
+			Value: convertToPointerToFloat64(rtm.Alloc),
 		},
 		{
-			Name:  "BuckHashSys",
-			Type:  "gauge",
-			Value: models.Gauge(rtm.BuckHashSys),
+			ID:    "BuckHashSys",
+			MType: "gauge",
+			Value: convertToPointerToFloat64(rtm.BuckHashSys),
 		},
 		{
-			Name:  "Frees",
-			Type:  "gauge",
-			Value: models.Gauge(rtm.Frees),
+			ID:    "Frees",
+			MType: "gauge",
+			Value: convertToPointerToFloat64(rtm.Frees),
 		},
 		{
-			Name:  "GcCPUFraction",
-			Type:  "gauge",
-			Value: models.Gauge(rtm.GCCPUFraction),
+			ID:    "GcCPUFraction",
+			MType: "gauge",
+			Value: &rtm.GCCPUFraction,
 		},
 		{
-			Name:  "GcSys",
-			Type:  "gauge",
-			Value: models.Gauge(rtm.GCSys),
+			ID:    "GcSys",
+			MType: "gauge",
+			Value: convertToPointerToFloat64(rtm.GCSys),
 		},
 		{
-			Name:  "HeapAlloc",
-			Type:  "gauge",
-			Value: models.Gauge(rtm.HeapAlloc),
+			ID:    "HeapAlloc",
+			MType: "gauge",
+			Value: convertToPointerToFloat64(rtm.HeapAlloc),
 		},
 		{
-			Name:  "HeapIdle",
-			Type:  "gauge",
-			Value: models.Gauge(rtm.HeapIdle),
+			ID:    "HeapIdle",
+			MType: "gauge",
+			Value: convertToPointerToFloat64(rtm.HeapIdle),
 		},
 		{
-			Name:  "HeapInuse",
-			Type:  "gauge",
-			Value: models.Gauge(rtm.HeapInuse),
+			ID:    "HeapInuse",
+			MType: "gauge",
+			Value: convertToPointerToFloat64(rtm.HeapInuse),
 		},
 		{
-			Name:  "HeapObjects",
-			Type:  "gauge",
-			Value: models.Gauge(rtm.HeapObjects),
+			ID:    "HeapObjects",
+			MType: "gauge",
+			Value: convertToPointerToFloat64(rtm.HeapObjects),
 		},
 		{
-			Name:  "HeapReleased",
-			Type:  "gauge",
-			Value: models.Gauge(rtm.HeapReleased),
+			ID:    "HeapReleased",
+			MType: "gauge",
+			Value: convertToPointerToFloat64(rtm.HeapReleased),
 		},
 		{
-			Name:  "HeapSys",
-			Type:  "gauge",
-			Value: models.Gauge(rtm.HeapSys),
+			ID:    "HeapSys",
+			MType: "gauge",
+			Value: convertToPointerToFloat64(rtm.HeapSys),
 		},
 		{
-			Name:  "LastGC",
-			Type:  "gauge",
-			Value: models.Gauge(rtm.LastGC),
+			ID:    "LastGC",
+			MType: "gauge",
+			Value: convertToPointerToFloat64(rtm.LastGC),
 		},
 		{
-			Name:  "Lookups",
-			Type:  "gauge",
-			Value: models.Gauge(rtm.Lookups),
+			ID:    "Lookups",
+			MType: "gauge",
+			Value: convertToPointerToFloat64(rtm.Lookups),
 		},
 		{
-			Name:  "MCacheInuse",
-			Type:  "gauge",
-			Value: models.Gauge(rtm.MCacheInuse),
+			ID:    "MCacheInuse",
+			MType: "gauge",
+			Value: convertToPointerToFloat64(rtm.MCacheInuse),
 		},
 		{
-			Name:  "MCacheSys",
-			Type:  "gauge",
-			Value: models.Gauge(rtm.MCacheSys),
+			ID:    "MCacheSys",
+			MType: "gauge",
+			Value: convertToPointerToFloat64(rtm.MCacheSys),
 		},
 		{
-			Name:  "MSpanInuse",
-			Type:  "gauge",
-			Value: models.Gauge(rtm.MSpanInuse),
+			ID:    "MSpanInuse",
+			MType: "gauge",
+			Value: convertToPointerToFloat64(rtm.MSpanInuse),
 		},
 		{
-			Name:  "MSpanSys",
-			Type:  "gauge",
-			Value: models.Gauge(rtm.MSpanSys),
+			ID:    "MSpanSys",
+			MType: "gauge",
+			Value: convertToPointerToFloat64(rtm.MSpanSys),
 		},
 		{
-			Name:  "Mallocs",
-			Type:  "gauge",
-			Value: models.Gauge(rtm.Mallocs),
+			ID:    "Mallocs",
+			MType: "gauge",
+			Value: convertToPointerToFloat64(rtm.Mallocs),
 		},
 		{
-			Name:  "NextGC",
-			Type:  "gauge",
-			Value: models.Gauge(rtm.NextGC),
+			ID:    "NextGC",
+			MType: "gauge",
+			Value: convertToPointerToFloat64(rtm.NextGC),
 		},
 		{
-			Name:  "NumForcedGC",
-			Type:  "gauge",
-			Value: models.Gauge(rtm.NumForcedGC),
+			ID:    "NumForcedGC",
+			MType: "gauge",
+			Value: convertToPointerToFloat64(uint64(rtm.NumForcedGC)),
 		},
 		{
-			Name:  "NumGC",
-			Type:  "gauge",
-			Value: models.Gauge(rtm.NumGC),
+			ID:    "NumGC",
+			MType: "gauge",
+			Value: convertToPointerToFloat64(uint64(rtm.NumGC)),
 		},
 		{
-			Name:  "OtherSys",
-			Type:  "gauge",
-			Value: models.Gauge(rtm.OtherSys),
+			ID:    "OtherSys",
+			MType: "gauge",
+			Value: convertToPointerToFloat64(rtm.OtherSys),
 		},
 		{
-			Name:  "PauseTotalNs",
-			Type:  "gauge",
-			Value: models.Gauge(rtm.PauseTotalNs),
+			ID:    "PauseTotalNs",
+			MType: "gauge",
+			Value: convertToPointerToFloat64(rtm.PauseTotalNs),
 		},
 		{
-			Name:  "StackInuse",
-			Type:  "gauge",
-			Value: models.Gauge(rtm.StackInuse),
+			ID:    "StackInuse",
+			MType: "gauge",
+			Value: convertToPointerToFloat64(rtm.StackInuse),
 		},
 		{
-			Name:  "StackSys",
-			Type:  "gauge",
-			Value: models.Gauge(rtm.StackSys),
+			ID:    "StackSys",
+			MType: "gauge",
+			Value: convertToPointerToFloat64(rtm.StackSys),
 		},
 		{
-			Name:  "Sys",
-			Type:  "gauge",
-			Value: models.Gauge(rtm.Sys),
+			ID:    "Sys",
+			MType: "gauge",
+			Value: convertToPointerToFloat64(rtm.Sys),
 		},
 		{
-			Name:  "TotalAlloc",
-			Type:  "gauge",
-			Value: models.Gauge(rtm.TotalAlloc),
+			ID:    "TotalAlloc",
+			MType: "gauge",
+			Value: convertToPointerToFloat64(rtm.TotalAlloc),
 		},
 		{
-			Name:  "PollCount",
-			Type:  "counter",
-			Value: models.Counter(count),
+			ID:    "PollCount",
+			MType: "counter",
+			Delta: &countValue,
 		},
 		{
-			Name:  "RandomValue",
-			Type:  "gauge",
-			Value: models.Gauge(rand.Float64()),
+			ID:    "RandomValue",
+			MType: "gauge",
+			Value: &randomValue,
 		},
 	}
+}
+
+func convertToPointerToFloat64(par uint64) *float64 {
+	f := math.Float64frombits(par)
+	return &f
 }
