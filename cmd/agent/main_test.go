@@ -19,7 +19,7 @@ func TestCreateRequestToMetricsUpdate(t *testing.T) {
 		Delta: nil,
 		Value: &val,
 	}
-	request, err := createRequestToMetricsUpdate(metric, "http://localhost:8080")
+	request, err := createRequestToMetricsUpdate(metric, "localhost:8080")
 
 	expectedEndpoint := "http://localhost:8080/update/"
 	assert.NoErrorf(t, err, "функция не должна была вернуть ошибку, но вернула %s", err)
@@ -60,7 +60,7 @@ func TestCollectAndSendMetrics(t *testing.T) {
 
 	go func() {
 		defer wg.Done()
-		collectAndSendMetrics(ch, pollTicker, reportTicker, client, metrics, "http://localhost:8080")
+		collectAndSendMetrics(ch, pollTicker, reportTicker, client, metrics, "localhost:8080")
 	}()
 
 	time.Sleep(time.Millisecond * 200)

@@ -20,7 +20,7 @@ var (
 )
 
 type config struct {
-	Address        string        `env:"ADDRESS" envDefault:"http://localhost:8080"`
+	Address        string        `env:"ADDRESS" envDefault:"localhost:8080"`
 	ReportInterval time.Duration `env:"REPORT_INTERVAL" envDefault:"10s"`
 	PollInterval   time.Duration `env:"POLL_INTERVAL" envDefault:"2s"`
 }
@@ -101,7 +101,7 @@ func createRequestToMetricsUpdate(metrics models.Metrics, address string) (*http
 		return nil, err
 	}
 
-	request, err := http.NewRequest(http.MethodPost, address+"/update/", bytes.NewBuffer(jsonData))
+	request, err := http.NewRequest(http.MethodPost, "http://"+address+"/update/", bytes.NewBuffer(jsonData))
 	if err != nil {
 		return nil, err
 	}
