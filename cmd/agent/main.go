@@ -94,7 +94,7 @@ func createRequestToMetricsUpdate(metrics models.Metrics) (*http.Request, error)
 	if err != nil {
 		return nil, err
 	}
-	request.Header.Add("Content-Type", "application/json")
+	request.Header.Set("Content-Type", "application/json")
 
 	return request, nil
 }
