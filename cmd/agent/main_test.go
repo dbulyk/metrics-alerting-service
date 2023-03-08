@@ -19,9 +19,9 @@ func TestCreateRequestToMetricsUpdate(t *testing.T) {
 		Delta: nil,
 		Value: &val,
 	}
-	request, err := createRequestToMetricsUpdate(metric)
+	request, err := createRequestToMetricsUpdate(metric, "http://localhost:8080")
 
-	expectedEndpoint := endpoint + "update/"
+	expectedEndpoint := "http://localhost:8080/update/"
 	assert.NoErrorf(t, err, "функция не должна была вернуть ошибку, но вернула %s", err)
 	assert.Equalf(t, expectedEndpoint, request.URL.String(), "ожидался эндпоинт %s, получен %s", expectedEndpoint, request.URL.String())
 	assert.Equalf(t, http.MethodPost, request.Method, "ожидаемый метод отправки: %s, получен %s", http.MethodPost, request.Method)
@@ -60,7 +60,7 @@ func TestCollectAndSendMetrics(t *testing.T) {
 
 	go func() {
 		defer wg.Done()
-		collectAndSendMetrics(ch, pollTicker, reportTicker, client, metrics)
+		collectAndSendMetrics(ch, pollTicker, reportTicker, client, metrics, "http://localhost:8080")
 	}()
 
 	time.Sleep(time.Millisecond * 200)

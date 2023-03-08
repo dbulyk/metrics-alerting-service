@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"github.com/caarlos0/env/v6"
 	"github.com/dbulyk/metrics-alerting-service/internal/models"
 	"io"
 	"log"
@@ -14,24 +15,33 @@ import (
 	"time"
 )
 
-const (
-	pollInterval   = time.Second * 2
-	reportInterval = time.Second * 10
-	endpoint       = "http://localhost:8080/"
-)
-
 var (
 	rtm runtime.MemStats
 )
 
-func main() {
-	var metrics = make([]models.Metrics, 0, 50)
-	ch := make(chan []models.Metrics)
-	pollTicker := time.NewTicker(pollInterval)
-	reportTicker := time.NewTicker(reportInterval)
-	client := &http.Client{}
+type config struct {
+	Address        string        `env:"ADDRESS" envDefault:"http://localhost:8080"`
+	ReportInterval time.Duration `env:"REPORT_INTERVAL" envDefault:"10s"`
+	PollInterval   time.Duration `env:"POLL_INTERVAL" envDefault:"2s"`
+}
 
-	collectAndSendMetrics(ch, pollTicker, reportTicker, client, metrics)
+func main() {
+	var (
+		metrics = make([]models.Metrics, 0, 50)
+		ch      = make(chan []models.Metrics)
+		client  = &http.Client{}
+		cfg     config
+	)
+
+	err := env.Parse(&cfg)
+	if err != nil {
+		log.Print(err)
+	}
+
+	pollTicker := time.NewTicker(cfg.PollInterval)
+	reportTicker := time.NewTicker(cfg.ReportInterval)
+
+	collectAndSendMetrics(ch, pollTicker, reportTicker, client, metrics, cfg.Address)
 	reportTicker.Stop()
 	pollTicker.Stop()
 }
@@ -42,6 +52,7 @@ func collectAndSendMetrics(
 	reportTicker *time.Ticker,
 	client *http.Client,
 	metrics []models.Metrics,
+	address string,
 ) {
 	var pollCount atomic.Int64
 	pollCount.Store(1)
@@ -55,7 +66,7 @@ func collectAndSendMetrics(
 		case <-reportTicker.C:
 			isError := false
 			for _, m := range metrics {
-				request, err := createRequestToMetricsUpdate(m)
+				request, err := createRequestToMetricsUpdate(m, address)
 				if err != nil {
 					isError = true
 					log.Printf("возникла ошибка при создании запроса. Ошибка: %s", err.Error())
@@ -84,13 +95,13 @@ func collectAndSendMetrics(
 	}
 }
 
-func createRequestToMetricsUpdate(metrics models.Metrics) (*http.Request, error) {
+func createRequestToMetricsUpdate(metrics models.Metrics, address string) (*http.Request, error) {
 	jsonData, err := json.Marshal(metrics)
 	if err != nil {
 		return nil, err
 	}
 
-	request, err := http.NewRequest(http.MethodPost, endpoint+"update/", bytes.NewBuffer(jsonData))
+	request, err := http.NewRequest(http.MethodPost, address+"/update/", bytes.NewBuffer(jsonData))
 	if err != nil {
 		return nil, err
 	}
