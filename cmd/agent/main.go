@@ -121,12 +121,12 @@ func collectMetrics(ch chan []models.Metrics, count *atomic.Int64) {
 			Value: convertToPointerToFloat64(rtm.Frees),
 		},
 		{
-			ID:    "GcCPUFraction",
+			ID:    "GCCPUFraction",
 			MType: "gauge",
 			Value: &rtm.GCCPUFraction,
 		},
 		{
-			ID:    "GcSys",
+			ID:    "GCSys",
 			MType: "gauge",
 			Value: convertToPointerToFloat64(rtm.GCSys),
 		},
