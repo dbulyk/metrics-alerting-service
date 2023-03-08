@@ -55,7 +55,7 @@ func UpdateWithJSON(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Add("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -142,7 +142,7 @@ func GetWithJSON(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Add("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 }
 
