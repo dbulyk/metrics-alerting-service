@@ -1,12 +1,10 @@
-package store
+package stores
 
 import (
 	"errors"
 	"github.com/dbulyk/metrics-alerting-service/internal/models"
 	"sync"
 )
-
-var metrics = make([]*models.Metrics, 0, 50)
 
 type MetricStore interface {
 	SetMetric(id string, mType string, value *float64, delta *int64) (*models.Metrics, error)
@@ -16,12 +14,20 @@ type MetricStore interface {
 
 type MemStorage struct {
 	sync.Mutex
+	metrics []*models.Metrics
+}
+
+func NewMemStorage() *MemStorage {
+	return &MemStorage{
+		metrics: make([]*models.Metrics, 0, 50),
+		Mutex:   sync.Mutex{},
+	}
 }
 
 func (ms *MemStorage) ListMetrics() ([]*models.Metrics, error) {
 	ms.Lock()
-	var listMetrics = make([]*models.Metrics, len(metrics))
-	copy(listMetrics, metrics)
+	var listMetrics = make([]*models.Metrics, len(ms.metrics))
+	copy(listMetrics, ms.metrics)
 	ms.Unlock()
 	return listMetrics, nil
 }
@@ -34,7 +40,7 @@ func (ms *MemStorage) SetMetric(id string, mType string, value *float64, delta *
 		return nil, errors.New("такого типа метрик не существует")
 	}
 
-	for _, m := range metrics {
+	for _, m := range ms.metrics {
 		if m.ID == id && m.MType == mType {
 			if m.MType == "counter" {
 				d := *m.Delta + *delta
@@ -53,13 +59,13 @@ func (ms *MemStorage) SetMetric(id string, mType string, value *float64, delta *
 		Delta: delta,
 	}
 
-	metrics = append(metrics, m)
+	ms.metrics = append(ms.metrics, m)
 	return m, nil
 }
 
 func (ms *MemStorage) GetMetric(id string, mType string) (*models.Metrics, error) {
 	ms.Lock()
-	for _, m := range metrics {
+	for _, m := range ms.metrics {
 		if m.ID == id && m.MType == mType {
 			ms.Unlock()
 			return m, nil

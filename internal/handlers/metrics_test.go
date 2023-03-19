@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"github.com/dbulyk/metrics-alerting-service/internal/models"
+	"github.com/dbulyk/metrics-alerting-service/internal/stores"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"io"
@@ -35,7 +36,8 @@ func testRequest(t *testing.T, ts *httptest.Server, method, path string, jsonDat
 }
 
 func TestRouter(t *testing.T) {
-	r := MetricsRouter()
+	mem := stores.NewMemStorage()
+	r, _, _ := MetricsRouter(mem)
 	ts := httptest.NewServer(r)
 	defer ts.Close()
 
@@ -52,7 +54,8 @@ func TestRouter(t *testing.T) {
 }
 
 func TestUpdateWithText(t *testing.T) {
-	r := MetricsRouter()
+	mem := stores.NewMemStorage()
+	r, _, _ := MetricsRouter(mem)
 	ts := httptest.NewServer(r)
 	defer ts.Close()
 
@@ -84,7 +87,8 @@ func TestUpdateWithText(t *testing.T) {
 }
 
 func TestUpdateWithJSON(t *testing.T) {
-	r := MetricsRouter()
+	mem := stores.NewMemStorage()
+	r, _, _ := MetricsRouter(mem)
 	ts := httptest.NewServer(r)
 	defer ts.Close()
 
@@ -144,7 +148,8 @@ func TestUpdateWithJSON(t *testing.T) {
 }
 
 func TestGetWithText(t *testing.T) {
-	r := MetricsRouter()
+	mem := stores.NewMemStorage()
+	r, _, _ := MetricsRouter(mem)
 	ts := httptest.NewServer(r)
 	defer ts.Close()
 

@@ -3,20 +3,62 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/caarlos0/env/v6"
 	"github.com/dbulyk/metrics-alerting-service/internal/models"
-	"github.com/dbulyk/metrics-alerting-service/internal/store"
+	"github.com/dbulyk/metrics-alerting-service/internal/stores"
+	"github.com/dbulyk/metrics-alerting-service/internal/utils"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/rs/zerolog/log"
 	"html/template"
-	"log"
 	"net/http"
 	"strconv"
+	"time"
 )
 
-var mem store.MemStorage
+type config struct {
+	StoreInterval time.Duration `env:"STORE_INTERVAL" envDefault:"30s"`
+	StoreFile     string        `env:"STORE_FILE" envDefault:"tmp/devops-metrics-db.json"`
+	Restore       bool          `env:"RESTORE" envDefault:"true"`
+}
 
-func MetricsRouter() chi.Router {
-	r := chi.NewRouter()
+var (
+	mem *stores.MemStorage
+	cfg config
+)
+
+func MetricsRouter(metrics *stores.MemStorage) (r chi.Router, storeFile *string, err error) {
+	r = chi.NewRouter()
+	mem = metrics
+
+	err = env.Parse(&cfg)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if cfg.Restore == true {
+		err := utils.RestoreMetricsFromFile(mem, cfg.StoreFile)
+		if err != nil {
+			return nil, nil, err
+		}
+	}
+
+	if cfg.StoreFile != "" && cfg.StoreInterval > 0 {
+		writerTicker := time.NewTicker(cfg.StoreInterval)
+
+		go func() {
+			for {
+				select {
+				case <-writerTicker.C:
+					err := utils.SaveMetricsToFile(mem, cfg.StoreFile)
+					if err != nil {
+						return
+					}
+					log.Info().Msgf("метрики сохранены в файл %s", cfg.StoreFile)
+				}
+			}
+		}()
+	}
 
 	r.Use(middleware.Logger)
 	r.Use(middleware.RequestID)
@@ -30,7 +72,7 @@ func MetricsRouter() chi.Router {
 		r.Post("/update/{type}/{name}/{value}", UpdateWithText)
 		r.Post("/update/", UpdateWithJSON)
 	})
-	return r
+	return r, &cfg.StoreFile, nil
 }
 
 func UpdateWithJSON(w http.ResponseWriter, r *http.Request) {
@@ -39,19 +81,29 @@ func UpdateWithJSON(w http.ResponseWriter, r *http.Request) {
 	var m models.Metrics
 
 	if err := json.NewDecoder(r.Body).Decode(&m); err != nil {
+		log.Error().Err(err).Msgf("ошибка декодирования JSON")
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
 	metric, err := mem.SetMetric(m.ID, m.MType, m.Value, m.Delta)
 	if err != nil {
+		log.Error().Err(err).Msg("ошибка обновления метрики")
 		w.WriteHeader(http.StatusNotImplemented)
 		w.Write([]byte(err.Error()))
 		return
 	}
 
+	if cfg.StoreFile != "" && cfg.StoreInterval == 0 {
+		err := utils.SaveMetricsToFile(mem, cfg.StoreFile)
+		if err != nil {
+			log.Error().Err(err).Msg("ошибка сохранения метрики в файл")
+		}
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(metric); err != nil {
+		log.Error().Err(err).Msg("ошибка кодирования JSON")
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -71,6 +123,8 @@ func UpdateWithText(w http.ResponseWriter, r *http.Request) {
 	mName := chi.URLParam(r, "name")
 
 	if len(mType) == 0 || len(mName) == 0 || len(chi.URLParam(r, "value")) == 0 {
+		log.Error().Msgf("тип, имя или значение метрики не заданы. mType: %s, mName: %s, mValue: %s",
+			mType, mName, chi.URLParam(r, "value"))
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
@@ -78,6 +132,7 @@ func UpdateWithText(w http.ResponseWriter, r *http.Request) {
 	if mType == "gauge" {
 		value, err := strconv.ParseFloat(chi.URLParam(r, "value"), 64)
 		if err != nil {
+			log.Error().Err(err).Msgf("ошибка парсинга значения метрики: %s", chi.URLParam(r, "value"))
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
@@ -85,11 +140,13 @@ func UpdateWithText(w http.ResponseWriter, r *http.Request) {
 	} else if mType == "counter" {
 		value, err := strconv.ParseInt(chi.URLParam(r, "value"), 0, 64)
 		if err != nil {
+			log.Error().Err(err).Msgf("ошибка парсинга значения метрики: %s", chi.URLParam(r, "value"))
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
 		mValueInt = &value
 	} else {
+		log.Error().Msgf("пришел несуществующий тип метрики: %s", mType)
 		w.WriteHeader(http.StatusNotImplemented)
 		w.Write([]byte("такого типа метрики не существует"))
 		return
@@ -97,10 +154,19 @@ func UpdateWithText(w http.ResponseWriter, r *http.Request) {
 
 	_, err := mem.SetMetric(mName, mType, mValueFloat, mValueInt)
 	if err != nil {
+		log.Error().Err(err).Msgf("ошибка обновления метрики: %s", mName)
 		w.WriteHeader(http.StatusNotImplemented)
 		w.Write([]byte(err.Error()))
 		return
 	}
+
+	if cfg.StoreFile != "" && cfg.StoreInterval == 0 {
+		err := utils.SaveMetricsToFile(mem, cfg.StoreFile)
+		if err != nil {
+			return
+		}
+	}
+
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -110,13 +176,13 @@ func GetAll(w http.ResponseWriter, r *http.Request) {
 
 	tmpl, err := template.ParseFiles("templates/index.gohtml")
 	if err != nil {
-		log.Print(err)
+		log.Error().Err(err).Msg("ошибка парсинга шаблона")
 		return
 	}
 
 	err = tmpl.Execute(w, metrics)
 	if err != nil {
-		log.Print(err)
+		log.Error().Err(err).Msg("ошибка выполнения шаблона")
 		return
 	}
 }
@@ -127,12 +193,14 @@ func GetWithJSON(w http.ResponseWriter, r *http.Request) {
 	var m models.Metrics
 
 	if err := json.NewDecoder(r.Body).Decode(&m); err != nil {
+		log.Error().Err(err).Msg("ошибка декодирования JSON")
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
 	metric, err := mem.GetMetric(m.ID, m.MType)
 	if err != nil {
+		log.Error().Err(err).Msgf("ошибка получения метрики: %s", m.ID)
 		w.WriteHeader(http.StatusNotFound)
 		w.Write([]byte(err.Error()))
 		return
@@ -140,6 +208,7 @@ func GetWithJSON(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(metric); err != nil {
+		log.Error().Err(err).Msg("ошибка кодирования JSON")
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -153,6 +222,7 @@ func GetWithText(w http.ResponseWriter, r *http.Request) {
 	mName := chi.URLParam(r, "name")
 
 	if len(mType) == 0 || len(mName) == 0 {
+		log.Error().Msgf("тип или имя метрики не заданы. mType: %s, mName: %s", mType, mName)
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
@@ -160,6 +230,7 @@ func GetWithText(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain")
 	metric, err := mem.GetMetric(mName, mType)
 	if err != nil {
+		log.Error().Err(err).Msgf("ошибка получения метрики: %s", mName)
 		w.WriteHeader(http.StatusNotFound)
 		fmt.Fprint(w, err.Error())
 		return
