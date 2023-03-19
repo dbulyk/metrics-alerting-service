@@ -5,7 +5,6 @@ import (
 	"github.com/jarcoal/httpmock"
 	"github.com/stretchr/testify/assert"
 	"net/http"
-	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -55,16 +54,14 @@ func TestCollectAndSendMetrics(t *testing.T) {
 	reportTicker := time.NewTicker(time.Millisecond * 100)
 	client := &http.Client{}
 	var metrics []models.Metrics
-	var wg sync.WaitGroup
-	wg.Add(1)
+	done := make(chan bool)
 
 	go func() {
-		defer wg.Done()
-		collectAndSendMetrics(ch, pollTicker, reportTicker, client, metrics, "localhost:8080")
+		collectAndSendMetrics(ch, pollTicker, reportTicker, client, metrics, "localhost:8080", done)
 	}()
 
 	time.Sleep(time.Millisecond * 200)
 	pollTicker.Stop()
 	reportTicker.Stop()
-	wg.Done()
+	done <- true
 }

@@ -29,6 +29,7 @@ func main() {
 	var (
 		metrics = make([]models.Metrics, 0, 50)
 		ch      = make(chan []models.Metrics)
+		done    = make(chan bool)
 		client  = &http.Client{}
 		cfg     config
 	)
@@ -41,9 +42,10 @@ func main() {
 	pollTicker := time.NewTicker(cfg.PollInterval)
 	reportTicker := time.NewTicker(cfg.ReportInterval)
 
-	collectAndSendMetrics(ch, pollTicker, reportTicker, client, metrics, cfg.Address)
+	collectAndSendMetrics(ch, pollTicker, reportTicker, client, metrics, cfg.Address, done)
 	reportTicker.Stop()
 	pollTicker.Stop()
+	done <- true
 }
 
 func collectAndSendMetrics(
@@ -53,6 +55,7 @@ func collectAndSendMetrics(
 	client *http.Client,
 	metrics []models.Metrics,
 	address string,
+	done chan bool,
 ) {
 	var pollCount atomic.Int64
 	pollCount.Store(1)
@@ -91,6 +94,8 @@ func collectAndSendMetrics(
 			if !isError {
 				pollCount.Swap(1)
 			}
+		case <-done:
+			return
 		}
 	}
 }
