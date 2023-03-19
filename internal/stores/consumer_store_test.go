@@ -41,7 +41,7 @@ func TestConsumer_Read(t *testing.T) {
 	_, err = mem.SetMetric("testCounter", "counter", nil, &i)
 	assert.NoError(t, err)
 
-	testMetrics, err := mem.ListMetrics()
+	testMetrics, _ := mem.ListMetrics()
 
 	for _, metric := range testMetrics {
 		data, err := json.Marshal(metric)
@@ -65,7 +65,7 @@ func TestConsumer_Read(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	metrics1, err := mem1.ListMetrics()
+	metrics1, _ := mem1.ListMetrics()
 	assert.Equal(t, testMetrics, metrics1)
 }
 
