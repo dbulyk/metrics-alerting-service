@@ -36,7 +36,7 @@ func MetricsRouter(metrics *stores.MemStorage) (r chi.Router, storeFile *string,
 		return nil, nil, err
 	}
 
-	if cfg.Restore == true {
+	if cfg.Restore {
 		err := utils.RestoreMetricsFromFile(mem, cfg.StoreFile)
 		if err != nil {
 			return nil, nil, err
@@ -47,15 +47,12 @@ func MetricsRouter(metrics *stores.MemStorage) (r chi.Router, storeFile *string,
 		writerTicker := time.NewTicker(cfg.StoreInterval)
 
 		go func() {
-			for {
-				select {
-				case <-writerTicker.C:
-					err := utils.SaveMetricsToFile(mem, cfg.StoreFile)
-					if err != nil {
-						return
-					}
-					log.Info().Msgf("метрики сохранены в файл %s", cfg.StoreFile)
+			for range writerTicker.C {
+				err := utils.SaveMetricsToFile(mem, cfg.StoreFile)
+				if err != nil {
+					return
 				}
+				log.Info().Msgf("метрики сохранены в файл %s", cfg.StoreFile)
 			}
 		}()
 	}

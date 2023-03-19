@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"github.com/caarlos0/env/v6"
 	"github.com/dbulyk/metrics-alerting-service/internal/handlers"
 	"github.com/dbulyk/metrics-alerting-service/internal/stores"
@@ -70,7 +71,7 @@ func main() {
 		}
 	}
 
-	if err := srv.Shutdown(nil); err != nil {
+	if err := srv.Shutdown(context.TODO()); err != nil {
 		log.Error().Timestamp().Err(err).Msg("ошибка остановки сервера")
 	}
 

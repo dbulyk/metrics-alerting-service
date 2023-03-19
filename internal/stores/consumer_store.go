@@ -24,6 +24,7 @@ func NewConsumer(filename string) (*Consumer, error) {
 		decoder: json.NewDecoder(file),
 	}, nil
 }
+
 func (c *Consumer) Read() ([]models.Metrics, error) {
 	metrics := make([]models.Metrics, 0, 50)
 	for c.reader.Scan() {
@@ -35,6 +36,7 @@ func (c *Consumer) Read() ([]models.Metrics, error) {
 	}
 	return metrics, nil
 }
+
 func (c *Consumer) Close() error {
 	return c.file.Close()
 }
