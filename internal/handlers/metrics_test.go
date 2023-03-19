@@ -3,14 +3,17 @@ package handlers
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"github.com/dbulyk/metrics-alerting-service/internal/models"
 	"github.com/dbulyk/metrics-alerting-service/internal/stores"
+	"github.com/go-chi/chi/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strconv"
 	"testing"
 )
 
@@ -133,6 +136,17 @@ func TestUpdateWithJSON(t *testing.T) {
 	assert.Equal(t, http.StatusOK, statusCode)
 
 	jsonData, err = json.Marshal(models.Metrics{
+		ID:    "",
+		MType: "",
+		Delta: nil,
+		Value: nil,
+	})
+	assert.NoError(t, err)
+
+	statusCode, _ = testRequest(t, ts, "POST", "/update/", jsonData)
+	assert.Equal(t, http.StatusNotImplemented, statusCode)
+
+	jsonData, err = json.Marshal(models.Metrics{
 		ID:    "testCounter1",
 		MType: "counter",
 		Delta: nil,
@@ -145,6 +159,7 @@ func TestUpdateWithJSON(t *testing.T) {
 	err = json.Unmarshal([]byte(body), &m)
 	assert.NoError(t, err)
 	assert.Equal(t, int64(35), *m.Delta)
+
 }
 
 func TestGetWithText(t *testing.T) {
@@ -162,4 +177,107 @@ func TestGetWithText(t *testing.T) {
 
 	statusCode, _ = testRequest(t, ts, "GET", "/value/gauge/unknown", nil)
 	assert.Equal(t, http.StatusNotFound, statusCode)
+}
+
+func TestGetWithJSON(t *testing.T) {
+	mem := stores.NewMemStorage()
+	r, _, _ := MetricsRouter(mem)
+	ts := httptest.NewServer(r)
+	defer ts.Close()
+
+	statusCode, _ := testRequest(t, ts, "POST", "/update/gauge/testGauge/123.15", nil)
+	assert.Equal(t, http.StatusOK, statusCode)
+
+	jsonData, err := json.Marshal(models.Metrics{
+		ID:    "testGauge",
+		MType: "gauge",
+		Delta: nil,
+		Value: nil,
+	})
+	assert.NoError(t, err)
+
+	statusCode, body := testRequest(t, ts, "POST", "/value/", jsonData)
+	assert.Equal(t, http.StatusOK, statusCode)
+
+	var m models.Metrics
+	err = json.Unmarshal([]byte(body), &m)
+	assert.NoError(t, err)
+	assert.Equal(t, float64(123.15), *m.Value)
+
+	jsonData, err = json.Marshal(models.Metrics{
+		ID:    "unknown",
+		MType: "gauge",
+		Delta: nil,
+		Value: nil,
+	})
+	assert.NoError(t, err)
+
+	statusCode, _ = testRequest(t, ts, "POST", "/value/", jsonData)
+	assert.Equal(t, http.StatusNotFound, statusCode)
+
+	jsonData, err = json.Marshal(models.Metrics{
+		ID:    "",
+		MType: "",
+		Delta: nil,
+		Value: nil,
+	})
+	assert.NoError(t, err)
+
+	statusCode, body = testRequest(t, ts, "POST", "/value/", jsonData)
+	assert.Equal(t, http.StatusNotFound, statusCode)
+}
+
+func TestUpdateWithTextIncorrect(t *testing.T) {
+	mem := stores.NewMemStorage()
+
+	router := chi.NewRouter()
+	router.Post("/{type}/{name}/{value}", UpdateWithText)
+
+	testCases := []struct {
+		name       string
+		mType      string
+		mName      string
+		mValue     string
+		statusCode int
+	}{
+		{"missing type", "", "testGauge", "1.05", http.StatusNotFound},
+		{"missing name", "gauge", "", "1.05", http.StatusNotFound},
+		{"missing value", "gauge", "testGauge", "", http.StatusNotFound},
+		{"invalid type", "invalid", "testGauge", "1.05", http.StatusNotImplemented},
+		{"invalid gauge value", "gauge", "testGauge", "invalid", http.StatusBadRequest},
+		{"invalid counter value", "counter", "testCounter", "invalid", http.StatusBadRequest},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			ts := httptest.NewServer(router)
+			defer ts.Close()
+
+			url := fmt.Sprintf("%s/%s/%s/%s", ts.URL, tc.mType, tc.mName, tc.mValue)
+
+			req, err := http.NewRequest("POST", url, nil)
+			require.NoError(t, err)
+
+			resp, err := http.DefaultClient.Do(req)
+			require.NoError(t, err)
+			defer resp.Body.Close()
+
+			assert.Equal(t, tc.statusCode, resp.StatusCode)
+
+			if tc.statusCode == http.StatusOK {
+				metric, err := mem.GetMetric(tc.mName, tc.mType)
+				require.NoError(t, err)
+
+				if tc.mType == "gauge" {
+					value, err := strconv.ParseFloat(tc.mValue, 64)
+					require.NoError(t, err)
+					assert.Equal(t, value, *metric.Value)
+				} else if tc.mType == "counter" {
+					value, err := strconv.ParseInt(tc.mValue, 0, 64)
+					require.NoError(t, err)
+					assert.Equal(t, value, *metric.Delta)
+				}
+			}
+		})
+	}
 }
