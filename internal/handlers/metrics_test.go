@@ -223,7 +223,7 @@ func TestGetWithJSON(t *testing.T) {
 	})
 	assert.NoError(t, err)
 
-	statusCode, body = testRequest(t, ts, "POST", "/value/", jsonData)
+	statusCode, _ = testRequest(t, ts, "POST", "/value/", jsonData)
 	assert.Equal(t, http.StatusNotFound, statusCode)
 }
 
