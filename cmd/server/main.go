@@ -24,18 +24,15 @@ var (
 )
 
 func init() {
-	//инициализация логгера
 	output := zerolog.ConsoleWriter{Out: os.Stderr}
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 	log.Logger = zerolog.New(output).With().Timestamp().Logger()
 
-	//парсинг конфига
 	err := env.Parse(&cfg)
 	if err != nil {
 		log.Error().Timestamp().Err(err).Msg("ошибка парсинга конфига")
 	}
 
-	//инициализация хранилища
 	mem = stores.NewMemStorage()
 }
 

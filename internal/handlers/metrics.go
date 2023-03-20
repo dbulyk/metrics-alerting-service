@@ -52,8 +52,9 @@ func MetricsRouter(metrics *stores.MemStorage) (r chi.Router, storeFile *string,
 				if err != nil {
 					return
 				}
-				log.Info().Msgf("метрики сохранены в файл %s", cfg.StoreFile)
 			}
+			print("Stopping writerTicker\n")
+			writerTicker.Stop()
 		}()
 	}
 

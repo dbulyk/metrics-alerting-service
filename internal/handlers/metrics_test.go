@@ -62,30 +62,30 @@ func TestUpdateWithText(t *testing.T) {
 	ts := httptest.NewServer(r)
 	defer ts.Close()
 
-	statusCode, _ := testRequest(t, ts, "POST", "/update/counter/testCounter/10", nil)
+	statusCode, _ := testRequest(t, ts, "POST", "/update/counter/testCounter2/10", nil)
 	assert.Equal(t, http.StatusOK, statusCode)
 
-	statusCode, body := testRequest(t, ts, "GET", "/value/counter/testCounter", nil)
+	statusCode, body := testRequest(t, ts, "GET", "/value/counter/testCounter2", nil)
 	assert.Equal(t, http.StatusOK, statusCode)
 	assert.Equal(t, "10", body)
 
-	statusCode, _ = testRequest(t, ts, "POST", "/update/counter/testCounter/15", nil)
+	statusCode, _ = testRequest(t, ts, "POST", "/update/counter/testCounter2/15", nil)
 	assert.Equal(t, http.StatusOK, statusCode)
 
-	statusCode, body = testRequest(t, ts, "GET", "/value/counter/testCounter", nil)
+	statusCode, body = testRequest(t, ts, "GET", "/value/counter/testCounter2", nil)
 	assert.Equal(t, http.StatusOK, statusCode)
 	assert.Equal(t, "25", body)
 
-	statusCode, _ = testRequest(t, ts, "POST", "/update/unknown/testCounter/15", nil)
+	statusCode, _ = testRequest(t, ts, "POST", "/update/unknown/testCounter2/15", nil)
 	assert.Equal(t, http.StatusNotImplemented, statusCode)
 
-	statusCode, _ = testRequest(t, ts, "POST", "/update/unknown/testCounter/15", nil)
+	statusCode, _ = testRequest(t, ts, "POST", "/update/unknown/testCounter2/15", nil)
 	assert.Equal(t, http.StatusNotImplemented, statusCode)
 
 	statusCode, _ = testRequest(t, ts, "POST", "/update/counter/15/", nil)
 	assert.Equal(t, http.StatusNotFound, statusCode)
 
-	statusCode, _ = testRequest(t, ts, "POST", "/update/counter/testCounter/invalid", nil)
+	statusCode, _ = testRequest(t, ts, "POST", "/update/counter/testCounter2/invalid", nil)
 	assert.Equal(t, http.StatusBadRequest, statusCode)
 }
 
