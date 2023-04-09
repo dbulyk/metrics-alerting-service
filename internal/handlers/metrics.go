@@ -34,9 +34,9 @@ func MetricsRouter(metrics *stores.MemStorage) (r chi.Router, storeFile *string,
 	mem = metrics
 
 	fs := flag.NewFlagSet("custom", flag.ContinueOnError)
-	storeInterval := fs.Duration("store-interval", 30*time.Second, "Store interval duration (default: 30s)")
-	storeFile = fs.String("store-file", "tmp/devops-metrics-db.json", "Store file path (default: tmp/devops-metrics-db.json)")
-	restore := fs.Bool("restore", true, "Restore flag (default: true)")
+	storeInterval := fs.Duration("i", 30*time.Second, "Store interval duration (default: 30s)")
+	storeFile = fs.String("f", "tmp/devops-metrics-db.json", "Store file path (default: tmp/devops-metrics-db.json)")
+	restore := fs.Bool("r", true, "Restore flag (default: true)")
 
 	err = fs.Parse(os.Args[1:])
 	if err != nil {

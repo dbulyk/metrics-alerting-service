@@ -282,9 +282,9 @@ func convertToPointerToFloat64(par uint64) *float64 {
 }
 
 func parseFlags(fs *flag.FlagSet, args []string) {
-	address := fs.String("address", "localhost:8080", "Server address (default: localhost:8080)")
-	reportInterval := fs.Duration("report-interval", 10*time.Second, "Report interval duration (default: 10s)")
-	pollInterval := fs.Duration("poll-interval", 2*time.Second, "Poll interval duration (default: 2s)")
+	address := fs.String("a", "localhost:8080", "Server address (default: localhost:8080)")
+	reportInterval := fs.Duration("r", 10*time.Second, "Report interval duration (default: 10s)")
+	pollInterval := fs.Duration("p", 2*time.Second, "Poll interval duration (default: 2s)")
 
 	err := fs.Parse(os.Args[1:])
 	if err != nil {
