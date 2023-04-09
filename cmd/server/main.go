@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"github.com/caarlos0/env/v6"
 	"github.com/dbulyk/metrics-alerting-service/internal/handlers"
 	"github.com/dbulyk/metrics-alerting-service/internal/stores"
@@ -28,6 +29,10 @@ func init() {
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 	log.Logger = zerolog.New(output).With().Timestamp().Logger()
 
+	address := flag.String("a", "localhost:8080", "адрес сервера")
+	flag.Parse()
+	cfg.Address = *address
+
 	err := env.Parse(&cfg)
 	if err != nil {
 		log.Error().Timestamp().Err(err).Msg("ошибка парсинга конфига")
@@ -50,7 +55,7 @@ func main() {
 		Addr:    cfg.Address,
 		Handler: r,
 	}
-	log.Info().Timestamp().Msg("сервер запускается")
+	log.Info().Timestamp().Msgf("сервер запускается на %s", cfg.Address)
 
 	go func() {
 		if err := srv.ListenAndServe(); err != nil {

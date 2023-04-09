@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"flag"
 	"fmt"
 	"github.com/caarlos0/env/v6"
 	"github.com/dbulyk/metrics-alerting-service/internal/models"
@@ -12,6 +13,7 @@ import (
 	"github.com/rs/zerolog/log"
 	"html/template"
 	"net/http"
+	"os"
 	"strconv"
 	"time"
 )
@@ -30,6 +32,22 @@ var (
 func MetricsRouter(metrics *stores.MemStorage) (r chi.Router, storeFile *string, err error) {
 	r = chi.NewRouter()
 	mem = metrics
+
+	fs := flag.NewFlagSet("custom", flag.ContinueOnError)
+	storeInterval := fs.Duration("store-interval", 30*time.Second, "Store interval duration (default: 30s)")
+	storeFile = fs.String("store-file", "tmp/devops-metrics-db.json", "Store file path (default: tmp/devops-metrics-db.json)")
+	restore := fs.Bool("restore", true, "Restore flag (default: true)")
+
+	err = fs.Parse(os.Args[1:])
+	if err != nil {
+		log.Error().Err(err).Msgf("ошибка парсинга флагов")
+	}
+
+	cfg = config{
+		StoreInterval: *storeInterval,
+		StoreFile:     *storeFile,
+		Restore:       *restore,
+	}
 
 	err = env.Parse(&cfg)
 	if err != nil {

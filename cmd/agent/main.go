@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"flag"
 	"github.com/caarlos0/env/v6"
 	"github.com/dbulyk/metrics-alerting-service/internal/models"
 	"io"
@@ -10,6 +11,7 @@ import (
 	"math"
 	"math/rand"
 	"net/http"
+	"os"
 	"runtime"
 	"sync/atomic"
 	"time"
@@ -17,6 +19,7 @@ import (
 
 var (
 	rtm runtime.MemStats
+	cfg config
 )
 
 type config struct {
@@ -25,19 +28,23 @@ type config struct {
 	PollInterval   time.Duration `env:"POLL_INTERVAL" envDefault:"2s"`
 }
 
+func init() {
+	fs := flag.NewFlagSet("custom", flag.ContinueOnError)
+	parseFlags(fs, os.Args[1:])
+
+	err := env.Parse(&cfg)
+	if err != nil {
+		log.Print(err)
+	}
+}
+
 func main() {
 	var (
 		metrics = make([]models.Metrics, 0, 50)
 		ch      = make(chan []models.Metrics)
 		done    = make(chan bool)
 		client  = &http.Client{}
-		cfg     config
 	)
-
-	err := env.Parse(&cfg)
-	if err != nil {
-		log.Print(err)
-	}
 
 	pollTicker := time.NewTicker(cfg.PollInterval)
 	reportTicker := time.NewTicker(cfg.ReportInterval)
@@ -272,4 +279,21 @@ func collectMetrics(ch chan []models.Metrics, count *atomic.Int64) {
 func convertToPointerToFloat64(par uint64) *float64 {
 	f := math.Float64frombits(par)
 	return &f
+}
+
+func parseFlags(fs *flag.FlagSet, args []string) {
+	address := fs.String("address", "localhost:8080", "Server address (default: localhost:8080)")
+	reportInterval := fs.Duration("report-interval", 10*time.Second, "Report interval duration (default: 10s)")
+	pollInterval := fs.Duration("poll-interval", 2*time.Second, "Poll interval duration (default: 2s)")
+
+	err := fs.Parse(os.Args[1:])
+	if err != nil {
+		return
+	}
+
+	cfg = config{
+		Address:        *address,
+		ReportInterval: *reportInterval,
+		PollInterval:   *pollInterval,
+	}
 }
