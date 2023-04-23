@@ -33,26 +33,13 @@ func init() {
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 	log.Logger = zerolog.New(output).With().Timestamp().Logger()
 
-	fs := flag.NewFlagSet("custom", flag.ContinueOnError)
-	address := fs.String("a", "localhost:8080", "адрес сервера")
-	storeInterval := fs.Duration("i", 30*time.Second, "Store interval duration (default: 30s)")
-	storeFile := fs.String("f", "tmp/devops-metrics-db.json", "Store file path (default: tmp/devops-metrics-db.json)")
-	restore := fs.Bool("r", true, "Restore flag (default: true)")
-
-	err := fs.Parse(os.Args[1:])
-	if err != nil {
-		log.Error().Err(err).Msgf("ошибка парсинга флагов")
-	}
-
-	cfg = config{
-		Address:       *address,
-		StoreInterval: *storeInterval,
-		StoreFile:     *storeFile,
-		Restore:       *restore,
-	}
+	flag.StringVar(&cfg.Address, "a", "localhost:8080", "адрес сервера")
+	flag.BoolVar(&cfg.Restore, "r", false, "восстановить метрики из файла")
+	flag.DurationVar(&cfg.StoreInterval, "i", 30*time.Second, "интервал сохранения метрик в файл")
+	flag.StringVar(&cfg.StoreFile, "f", "tmp/devops-metrics-db.json", "файл для сохранения метрик")
 	flag.Parse()
 
-	err = env.Parse(&cfg)
+	err := env.Parse(&cfg)
 	if err != nil {
 		log.Error().Timestamp().Err(err).Msg("ошибка парсинга конфига")
 	}
