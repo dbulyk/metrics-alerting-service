@@ -2,9 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
-	"flag"
 	"fmt"
-	"github.com/caarlos0/env/v6"
 	"github.com/dbulyk/metrics-alerting-service/internal/models"
 	"github.com/dbulyk/metrics-alerting-service/internal/stores"
 	"github.com/dbulyk/metrics-alerting-service/internal/utils"
@@ -13,68 +11,20 @@ import (
 	"github.com/rs/zerolog/log"
 	"html/template"
 	"net/http"
-	"os"
 	"strconv"
-	"time"
 )
-
-type config struct {
-	StoreInterval time.Duration `env:"STORE_INTERVAL" envDefault:"30s"`
-	StoreFile     string        `env:"STORE_FILE" envDefault:"tmp/devops-metrics-db.json"`
-	Restore       bool          `env:"RESTORE" envDefault:"true"`
-}
 
 var (
-	mem *stores.MemStorage
-	cfg config
+	mem            *stores.MemStorage
+	isAsynchronous bool
+	storeFile      string
 )
 
-func MetricsRouter(metrics *stores.MemStorage) (r chi.Router, storeFile *string, err error) {
+func MetricsRouter(metrics *stores.MemStorage, isAsync bool, sFile string) (r chi.Router, err error) {
 	r = chi.NewRouter()
 	mem = metrics
-
-	fs := flag.NewFlagSet("custom", flag.ContinueOnError)
-	storeInterval := fs.Duration("i", 30*time.Second, "Store interval duration (default: 30s)")
-	storeFile = fs.String("f", "tmp/devops-metrics-db.json", "Store file path (default: tmp/devops-metrics-db.json)")
-	restore := fs.Bool("r", true, "Restore flag (default: true)")
-
-	err = fs.Parse(os.Args[1:])
-	if err != nil {
-		log.Error().Err(err).Msgf("ошибка парсинга флагов")
-	}
-
-	cfg = config{
-		StoreInterval: *storeInterval,
-		StoreFile:     *storeFile,
-		Restore:       *restore,
-	}
-
-	err = env.Parse(&cfg)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	if cfg.Restore {
-		err := utils.RestoreMetricsFromFile(mem, cfg.StoreFile)
-		if err != nil {
-			return nil, nil, err
-		}
-	}
-
-	if cfg.StoreFile != "" && cfg.StoreInterval > 0 {
-		writerTicker := time.NewTicker(cfg.StoreInterval)
-
-		go func() {
-			for range writerTicker.C {
-				err := utils.SaveMetricsToFile(mem, cfg.StoreFile)
-				if err != nil {
-					return
-				}
-			}
-			print("Stopping writerTicker\n")
-			writerTicker.Stop()
-		}()
-	}
+	isAsynchronous = isAsync
+	storeFile = sFile
 
 	r.Use(middleware.Logger)
 	r.Use(middleware.RequestID)
@@ -88,7 +38,7 @@ func MetricsRouter(metrics *stores.MemStorage) (r chi.Router, storeFile *string,
 		r.Post("/update/{type}/{name}/{value}", UpdateWithText)
 		r.Post("/update/", UpdateWithJSON)
 	})
-	return r, &cfg.StoreFile, nil
+	return r, nil
 }
 
 func UpdateWithJSON(w http.ResponseWriter, r *http.Request) {
@@ -110,8 +60,8 @@ func UpdateWithJSON(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if cfg.StoreFile != "" && cfg.StoreInterval == 0 {
-		err := utils.SaveMetricsToFile(mem, cfg.StoreFile)
+	if isAsynchronous {
+		err := utils.SaveMetricsToFile(mem, storeFile)
 		if err != nil {
 			log.Error().Err(err).Msg("ошибка сохранения метрики в файл")
 		}
@@ -176,8 +126,8 @@ func UpdateWithText(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if cfg.StoreFile != "" && cfg.StoreInterval == 0 {
-		err := utils.SaveMetricsToFile(mem, cfg.StoreFile)
+	if isAsynchronous {
+		err := utils.SaveMetricsToFile(mem, storeFile)
 		if err != nil {
 			return
 		}
