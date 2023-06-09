@@ -101,7 +101,7 @@ func main() {
 }
 
 func parseFlagsAndEnvs() {
-	flag.StringVar(&cfg.Address, "a", "localhost:8082", "адрес сервера")
+	flag.StringVar(&cfg.Address, "a", "localhost:8080", "адрес сервера")
 	flag.BoolVar(&cfg.Restore, "r", false, "восстановить метрики из файла")
 	flag.DurationVar(&cfg.StoreInterval, "i", 30*time.Second, "интервал сохранения метрик в файл")
 	flag.StringVar(&cfg.StoreFile, "f", "tmp/devops-metrics-db.json", "файл для сохранения метрик")
