@@ -5,7 +5,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func SaveMetricsToFile(mem *stores.MemStorage, filename string) error {
+func SaveMetrics(mem *stores.MemStorage, filename string) error {
 	listMetrics, _ := mem.ListMetrics()
 	producer, err := stores.NewProducer(filename)
 	if err != nil {
@@ -21,7 +21,7 @@ func SaveMetricsToFile(mem *stores.MemStorage, filename string) error {
 	return nil
 }
 
-func RestoreMetricsFromFile(mem *stores.MemStorage, filename string) error {
+func RestoreMetrics(mem *stores.MemStorage, filename string) error {
 	consumer, err := stores.NewConsumer(filename)
 	if err != nil {
 		return err

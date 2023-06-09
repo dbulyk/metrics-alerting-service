@@ -22,10 +22,10 @@ var (
 )
 
 type config struct {
-	Address       string        `env:"ADDRESS" envDefault:"localhost:8080"`
-	StoreInterval time.Duration `env:"STORE_INTERVAL" envDefault:"30s"`
-	StoreFile     string        `env:"STORE_FILE" envDefault:"tmp/devops-metrics-db.json"`
-	Restore       bool          `env:"RESTORE" envDefault:"true"`
+	Address       string        `env:"ADDRESS"`
+	StoreInterval time.Duration `env:"STORE_INTERVAL"`
+	StoreFile     string        `env:"STORE_FILE"`
+	Restore       bool          `env:"RESTORE"`
 }
 
 func init() {
@@ -33,21 +33,12 @@ func init() {
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 	log.Logger = zerolog.New(output).With().Timestamp().Logger()
 
-	flag.StringVar(&cfg.Address, "a", "localhost:8080", "адрес сервера")
-	flag.BoolVar(&cfg.Restore, "r", false, "восстановить метрики из файла")
-	flag.DurationVar(&cfg.StoreInterval, "i", 30*time.Second, "интервал сохранения метрик в файл")
-	flag.StringVar(&cfg.StoreFile, "f", "tmp/devops-metrics-db.json", "файл для сохранения метрик")
-	flag.Parse()
-
-	err := env.Parse(&cfg)
-	if err != nil {
-		log.Error().Timestamp().Err(err).Msg("ошибка парсинга конфига")
-	}
-
 	mem = stores.NewMemStorage()
 }
 
 func main() {
+	parseFlagsAndEnvs()
+
 	isAsync := cfg.StoreFile != "" && cfg.StoreInterval == 0
 	r, err := handlers.MetricsRouter(mem, isAsync, cfg.StoreFile)
 	if err != nil {
@@ -59,7 +50,7 @@ func main() {
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 
 	if cfg.Restore {
-		err := utils.RestoreMetricsFromFile(mem, cfg.StoreFile)
+		err := utils.RestoreMetrics(mem, cfg.StoreFile)
 		if err != nil {
 			log.Error().Timestamp().Err(err).Msg("ошибка восстановления метрик")
 		}
@@ -70,7 +61,7 @@ func main() {
 
 		go func() {
 			for range writerTicker.C {
-				err := utils.SaveMetricsToFile(mem, cfg.StoreFile)
+				err := utils.SaveMetrics(mem, cfg.StoreFile)
 				if err != nil {
 					return
 				}
@@ -95,7 +86,7 @@ func main() {
 	log.Info().Timestamp().Msg("получен сигнал остановки")
 
 	if len(cfg.StoreFile) != 0 {
-		err = utils.SaveMetricsToFile(mem, cfg.StoreFile)
+		err = utils.SaveMetrics(mem, cfg.StoreFile)
 		if err != nil {
 			log.Error().Timestamp().Err(err).Msg("ошибка сохранения метрик")
 		}
@@ -107,4 +98,17 @@ func main() {
 
 	log.Info().Timestamp().Msg("сервер остановлен")
 	os.Exit(0)
+}
+
+func parseFlagsAndEnvs() {
+	flag.StringVar(&cfg.Address, "a", "localhost:8082", "адрес сервера")
+	flag.BoolVar(&cfg.Restore, "r", false, "восстановить метрики из файла")
+	flag.DurationVar(&cfg.StoreInterval, "i", 30*time.Second, "интервал сохранения метрик в файл")
+	flag.StringVar(&cfg.StoreFile, "f", "tmp/devops-metrics-db.json", "файл для сохранения метрик")
+	flag.Parse()
+
+	err := env.Parse(&cfg)
+	if err != nil {
+		log.Error().Timestamp().Err(err).Msg("ошибка парсинга конфига")
+	}
 }

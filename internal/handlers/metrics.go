@@ -61,7 +61,7 @@ func UpdateWithJSON(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if isAsynchronous {
-		err := utils.SaveMetricsToFile(mem, storeFile)
+		err := utils.SaveMetrics(mem, storeFile)
 		if err != nil {
 			log.Error().Err(err).Msg("ошибка сохранения метрики в файл")
 		}
@@ -127,7 +127,7 @@ func UpdateWithText(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if isAsynchronous {
-		err := utils.SaveMetricsToFile(mem, storeFile)
+		err := utils.SaveMetrics(mem, storeFile)
 		if err != nil {
 			return
 		}

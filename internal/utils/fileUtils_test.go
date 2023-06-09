@@ -23,7 +23,7 @@ func TestSaveMetricsToFile(t *testing.T) {
 	require.NoError(t, err)
 	defer os.Remove(tmpfile.Name())
 
-	err = SaveMetricsToFile(mem, tmpfile.Name())
+	err = SaveMetrics(mem, tmpfile.Name())
 	assert.NoError(t, err)
 }
 
@@ -42,10 +42,10 @@ func TestRestoreMetricsFromFile(t *testing.T) {
 	require.NoError(t, err)
 	defer os.Remove(tmpfile.Name())
 
-	err = SaveMetricsToFile(mem, tmpfile.Name())
+	err = SaveMetrics(mem, tmpfile.Name())
 	require.NoError(t, err)
 
-	err = RestoreMetricsFromFile(mem, tmpfile.Name())
+	err = RestoreMetrics(mem, tmpfile.Name())
 	assert.NoError(t, err)
 
 	metrics, _ := mem.ListMetrics()
