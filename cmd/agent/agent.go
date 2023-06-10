@@ -273,8 +273,8 @@ func convertToPointerToFloat64(par uint64) *float64 {
 
 func parseFlagsAndEnvs() {
 	flag.StringVar(&cfg.Address, "a", "localhost:8080", "адрес сервера")
-	flag.DurationVar(&cfg.ReportInterval, "i", 10*time.Second, "интервал отправки метрик на сервер")
-	flag.DurationVar(&cfg.PollInterval, "f", 2*time.Second, "интервал опроса метрик")
+	flag.DurationVar(&cfg.ReportInterval, "r", 10*time.Second, "интервал отправки метрик на сервер")
+	flag.DurationVar(&cfg.PollInterval, "p", 2*time.Second, "интервал опроса метрик")
 	flag.Parse()
 
 	err := env.Parse(&cfg)
