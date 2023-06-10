@@ -39,10 +39,11 @@ func init() {
 func main() {
 	parseFlagsAndEnvs()
 
-	isAsync := cfg.StoreFile != "" && cfg.StoreInterval == 0
+	isAsync := len(cfg.StoreFile) != 0 && cfg.StoreInterval == 0
 	r, err := handlers.MetricsRouter(mem, isAsync, cfg.StoreFile)
 	if err != nil {
 		log.Fatal().Timestamp().Err(err).Msg("ошибка инициализации роутера")
+		os.Exit(1)
 	}
 	log.Info().Timestamp().Msg("роутер инициализирован")
 
@@ -56,18 +57,20 @@ func main() {
 		}
 	}
 
-	if cfg.StoreFile != "" && cfg.StoreInterval > 0 {
-		writerTicker := time.NewTicker(cfg.StoreInterval)
-
+	if len(cfg.StoreFile) != 0 && cfg.StoreInterval != 0 {
+		ticker := time.NewTicker(cfg.StoreInterval)
 		go func() {
-			for range writerTicker.C {
-				err := utils.SaveMetrics(mem, cfg.StoreFile)
-				if err != nil {
-					return
+			for {
+				select {
+				case <-ticker.C:
+					err := utils.SaveMetrics(mem, cfg.StoreFile)
+					if err != nil {
+						log.Error().Timestamp().Err(err).Msg("ошибка сохранения метрик")
+					}
 				}
 			}
-			log.Info().Timestamp().Msg("остановка тикера")
 		}()
+		defer ticker.Stop()
 	}
 
 	srv := &http.Server{

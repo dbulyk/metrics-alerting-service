@@ -64,4 +64,9 @@ func TestCollectAndSendMetrics(t *testing.T) {
 	pollTicker.Stop()
 	reportTicker.Stop()
 	done <- true
+
+	info := httpmock.GetCallCountInfo()
+	if info["POST http://localhost:8080/update/"] == 0 {
+		t.Error("Ожидался запрос на сервер, но он не был получен")
+	}
 }

@@ -11,7 +11,6 @@ import (
 	"math"
 	"math/rand"
 	"net/http"
-	"os"
 	"runtime"
 	"sync/atomic"
 	"time"
@@ -23,22 +22,13 @@ var (
 )
 
 type config struct {
-	Address        string        `env:"ADDRESS" envDefault:"localhost:8080"`
-	ReportInterval time.Duration `env:"REPORT_INTERVAL" envDefault:"10s"`
-	PollInterval   time.Duration `env:"POLL_INTERVAL" envDefault:"2s"`
-}
-
-func init() {
-	fs := flag.NewFlagSet("custom", flag.ContinueOnError)
-	parseFlags(fs, os.Args[1:])
-
-	err := env.Parse(&cfg)
-	if err != nil {
-		log.Print(err)
-	}
+	Address        string        `env:"ADDRESS" envDescription:"адрес сервера"`
+	ReportInterval time.Duration `env:"REPORT_INTERVAL" envDescription:"интервал отправки метрик на сервер"`
+	PollInterval   time.Duration `env:"POLL_INTERVAL" envDescription:"интервал опроса метрик"`
 }
 
 func main() {
+	parseFlagsAndEnvs()
 	var (
 		metrics = make([]models.Metrics, 0, 50)
 		ch      = make(chan []models.Metrics)
@@ -281,19 +271,14 @@ func convertToPointerToFloat64(par uint64) *float64 {
 	return &f
 }
 
-func parseFlags(fs *flag.FlagSet, args []string) {
-	address := fs.String("a", "localhost:8080", "Server address (default: localhost:8080)")
-	reportInterval := fs.Duration("r", 10*time.Second, "Report interval duration (default: 10s)")
-	pollInterval := fs.Duration("p", 2*time.Second, "Poll interval duration (default: 2s)")
+func parseFlagsAndEnvs() {
+	flag.StringVar(&cfg.Address, "a", "localhost:8080", "адрес сервера")
+	flag.DurationVar(&cfg.ReportInterval, "i", 10*time.Second, "интервал отправки метрик на сервер")
+	flag.DurationVar(&cfg.PollInterval, "f", 2*time.Second, "интервал опроса метрик")
+	flag.Parse()
 
-	err := fs.Parse(os.Args[1:])
+	err := env.Parse(&cfg)
 	if err != nil {
-		return
-	}
-
-	cfg = config{
-		Address:        *address,
-		ReportInterval: *reportInterval,
-		PollInterval:   *pollInterval,
+		log.Print(err)
 	}
 }
