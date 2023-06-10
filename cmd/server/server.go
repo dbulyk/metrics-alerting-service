@@ -58,19 +58,17 @@ func main() {
 	}
 
 	if len(cfg.StoreFile) != 0 && cfg.StoreInterval != 0 {
-		ticker := time.NewTicker(cfg.StoreInterval)
+		log.Info().Msgf("запуск записи метрик в файл с интервалом в %s секунд", cfg.StoreInterval)
+		writeTicker := time.NewTicker(cfg.StoreInterval)
 		go func() {
-			for {
-				select {
-				case <-ticker.C:
-					err := utils.SaveMetrics(mem, cfg.StoreFile)
-					if err != nil {
-						log.Error().Timestamp().Err(err).Msg("ошибка сохранения метрик")
-					}
+			for range writeTicker.C {
+				err := utils.SaveMetrics(mem, cfg.StoreFile)
+				if err != nil {
+					log.Error().Timestamp().Err(err).Msg("ошибка сохранения метрик")
 				}
 			}
 		}()
-		defer ticker.Stop()
+		defer writeTicker.Stop()
 	}
 
 	srv := &http.Server{
@@ -105,8 +103,8 @@ func main() {
 
 func parseFlagsAndEnvs() {
 	flag.StringVar(&cfg.Address, "a", "localhost:8080", "адрес сервера")
-	flag.BoolVar(&cfg.Restore, "r", false, "восстановить метрики из файла")
-	flag.DurationVar(&cfg.StoreInterval, "i", 30*time.Second, "интервал сохранения метрик в файл")
+	flag.BoolVar(&cfg.Restore, "r", true, "восстановить метрики из файла")
+	flag.DurationVar(&cfg.StoreInterval, "i", 300*time.Second, "интервал сохранения метрик в файл")
 	flag.StringVar(&cfg.StoreFile, "f", "tmp/devops-metrics-db.json", "файл для сохранения метрик")
 	flag.Parse()
 
