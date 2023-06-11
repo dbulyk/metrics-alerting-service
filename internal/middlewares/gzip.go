@@ -7,9 +7,9 @@ import (
 	"strings"
 )
 
-type gzipResponseWriter struct {
-	rw http.ResponseWriter
-	w  *gzip.Writer
+type gzipWriter struct {
+	http.ResponseWriter
+	Writer *gzip.Writer
 }
 
 func GzipMiddleware(next http.Handler) http.Handler {
@@ -21,6 +21,7 @@ func GzipMiddleware(next http.Handler) http.Handler {
 
 		w.Header().Set("Content-Encoding", "gzip")
 		gzWriter := gzip.NewWriter(w)
+
 		defer func(gz *gzip.Writer) {
 			err := gz.Close()
 			if err != nil {
@@ -28,19 +29,19 @@ func GzipMiddleware(next http.Handler) http.Handler {
 			}
 		}(gzWriter)
 
-		gzResponse := gzipResponseWriter{w: gzWriter, rw: w}
+		gzResponse := gzipWriter{Writer: gzWriter, ResponseWriter: w}
 		next.ServeHTTP(gzResponse, r)
 	})
 }
 
-func (gzResponse gzipResponseWriter) Write(b []byte) (int, error) {
-	return gzResponse.w.Write(b)
+func (gzResponse gzipWriter) Write(b []byte) (int, error) {
+	return gzResponse.Writer.Write(b)
 }
 
-func (gzResponse gzipResponseWriter) Header() http.Header {
-	return gzResponse.rw.Header()
+func (gzResponse gzipWriter) Header() http.Header {
+	return gzResponse.ResponseWriter.Header()
 }
 
-func (gzResponse gzipResponseWriter) WriteHeader(statusCode int) {
-	gzResponse.rw.WriteHeader(statusCode)
+func (gzResponse gzipWriter) WriteHeader(statusCode int) {
+	gzResponse.ResponseWriter.WriteHeader(statusCode)
 }
