@@ -27,6 +27,7 @@ func TestGzipMiddleware(t *testing.T) {
 
 	resp, err := http.DefaultClient.Do(req)
 	assert.NoError(t, err)
+	defer resp.Body.Close()
 
 	assert.Equal(t, "gzip", resp.Header.Get("Content-Encoding"))
 
