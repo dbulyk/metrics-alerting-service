@@ -11,7 +11,12 @@ func SaveMetrics(mem *stores.MemStorage, filename string) error {
 	if err != nil {
 		return err
 	}
-	defer producer.Close()
+	defer func(producer *stores.Producer) {
+		err := producer.Close()
+		if err != nil {
+			log.Error().Msgf("ошибка закрытия файла %s", filename)
+		}
+	}(producer)
 
 	err = producer.Write(listMetrics)
 	if err != nil {
@@ -26,7 +31,12 @@ func RestoreMetrics(mem *stores.MemStorage, filename string) error {
 	if err != nil {
 		return err
 	}
-	defer consumer.Close()
+	defer func(consumer *stores.Consumer) {
+		err := consumer.Close()
+		if err != nil {
+			log.Error().Msgf("ошибка закрытия файла %s", filename)
+		}
+	}(consumer)
 
 	metrics, err := consumer.Read()
 	if err != nil {

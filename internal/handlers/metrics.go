@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/dbulyk/metrics-alerting-service/internal/middlewares"
 	"github.com/dbulyk/metrics-alerting-service/internal/models"
 	"github.com/dbulyk/metrics-alerting-service/internal/stores"
 	"github.com/dbulyk/metrics-alerting-service/internal/utils"
@@ -10,6 +11,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/rs/zerolog/log"
 	"html/template"
+	"io"
 	"net/http"
 	"strconv"
 )
@@ -30,6 +32,7 @@ func MetricsRouter(metrics *stores.MemStorage, isAsync bool, sFile string) (r ch
 	r.Use(middleware.RequestID)
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Recoverer)
+	r.Use(middlewares.GzipMiddleware)
 
 	r.Route("/", func(r chi.Router) {
 		r.Get("/", GetAll)
@@ -42,7 +45,12 @@ func MetricsRouter(metrics *stores.MemStorage, isAsync bool, sFile string) (r ch
 }
 
 func UpdateWithJSON(w http.ResponseWriter, r *http.Request) {
-	defer r.Body.Close()
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			log.Error().Err(err).Msg("ошибка закрытия тела запроса")
+		}
+	}(r.Body)
 
 	var m models.Metrics
 
@@ -78,7 +86,12 @@ func UpdateWithJSON(w http.ResponseWriter, r *http.Request) {
 }
 
 func UpdateWithText(w http.ResponseWriter, r *http.Request) {
-	defer r.Body.Close()
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			log.Error().Err(err).Msg("ошибка закрытия тела запроса")
+		}
+	}(r.Body)
 
 	var (
 		mValueFloat *float64
@@ -137,7 +150,12 @@ func UpdateWithText(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetAll(w http.ResponseWriter, r *http.Request) {
-	defer r.Body.Close()
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			log.Error().Err(err).Msg("ошибка закрытия тела запроса")
+		}
+	}(r.Body)
 	metrics, _ := mem.ListMetrics()
 
 	tmpl, err := template.ParseFiles("templates/index.gohtml")
@@ -146,6 +164,7 @@ func GetAll(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	w.Header().Set("Content-Type", "text/html")
 	err = tmpl.Execute(w, metrics)
 	if err != nil {
 		log.Error().Err(err).Msg("ошибка выполнения шаблона")
@@ -154,7 +173,12 @@ func GetAll(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetWithJSON(w http.ResponseWriter, r *http.Request) {
-	defer r.Body.Close()
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			log.Error().Err(err).Msg("ошибка закрытия тела запроса")
+		}
+	}(r.Body)
 
 	var m models.Metrics
 
@@ -182,7 +206,12 @@ func GetWithJSON(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetWithText(w http.ResponseWriter, r *http.Request) {
-	defer r.Body.Close()
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			log.Error().Err(err).Msg("ошибка закрытия тела запроса")
+		}
+	}(r.Body)
 
 	mType := chi.URLParam(r, "type")
 	mName := chi.URLParam(r, "name")
