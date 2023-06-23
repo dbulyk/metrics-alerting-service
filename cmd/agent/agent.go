@@ -3,9 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
-	"flag"
-	"github.com/caarlos0/env/v6"
-	"github.com/dbulyk/metrics-alerting-service/internal/models"
+	"github.com/dbulyk/metrics-alerting-service/config"
 	"io"
 	"log"
 	"math"
@@ -14,21 +12,19 @@ import (
 	"runtime"
 	"sync/atomic"
 	"time"
+
+	"github.com/dbulyk/metrics-alerting-service/internal/models"
 )
 
 var (
 	rtm runtime.MemStats
-	cfg config
 )
 
-type config struct {
-	Address        string        `env:"ADDRESS" envDescription:"адрес сервера"`
-	ReportInterval time.Duration `env:"REPORT_INTERVAL" envDescription:"интервал отправки метрик на сервер"`
-	PollInterval   time.Duration `env:"POLL_INTERVAL" envDescription:"интервал опроса метрик"`
-}
-
 func main() {
-	parseFlagsAndEnvs()
+	cfg, err := config.NewAgentCfg()
+	if err != nil {
+		log.Fatalf("ошибка парсинга конфига: %v", err)
+	}
 	var (
 		metrics = make([]models.Metrics, 0, 50)
 		ch      = make(chan []models.Metrics)
@@ -269,16 +265,4 @@ func collectMetrics(ch chan []models.Metrics, count *atomic.Int64) {
 func convertToPointerToFloat64(par uint64) *float64 {
 	f := math.Float64frombits(par)
 	return &f
-}
-
-func parseFlagsAndEnvs() {
-	flag.StringVar(&cfg.Address, "a", "localhost:8080", "адрес сервера")
-	flag.DurationVar(&cfg.ReportInterval, "r", 10*time.Second, "интервал отправки метрик на сервер")
-	flag.DurationVar(&cfg.PollInterval, "p", 2*time.Second, "интервал опроса метрик")
-	flag.Parse()
-
-	err := env.Parse(&cfg)
-	if err != nil {
-		log.Print(err)
-	}
 }

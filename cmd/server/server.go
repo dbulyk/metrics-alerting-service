@@ -2,31 +2,23 @@ package main
 
 import (
 	"context"
-	"flag"
-	"github.com/caarlos0/env/v6"
-	"github.com/dbulyk/metrics-alerting-service/internal/handlers"
-	"github.com/dbulyk/metrics-alerting-service/internal/stores"
-	"github.com/dbulyk/metrics-alerting-service/internal/utils"
-	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
+	"github.com/dbulyk/metrics-alerting-service/config"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
+
+	"github.com/dbulyk/metrics-alerting-service/internal/handlers"
+	"github.com/dbulyk/metrics-alerting-service/internal/stores"
+	"github.com/dbulyk/metrics-alerting-service/internal/utils"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 )
 
 var (
-	cfg config
 	mem *stores.MemStorage
 )
-
-type config struct {
-	Address       string        `env:"ADDRESS"`
-	StoreInterval time.Duration `env:"STORE_INTERVAL"`
-	StoreFile     string        `env:"STORE_FILE"`
-	Restore       bool          `env:"RESTORE"`
-}
 
 func init() {
 	output := zerolog.ConsoleWriter{Out: os.Stderr}
@@ -37,13 +29,15 @@ func init() {
 }
 
 func main() {
-	parseFlagsAndEnvs()
+	cfg, err := config.NewServerCfg()
+	if err != nil {
+		log.Fatal().Timestamp().Err(err).Msg("ошибка чтения конфига")
+	}
 
 	isAsync := len(cfg.StoreFile) != 0 && cfg.StoreInterval == 0
 	r, err := handlers.MetricsRouter(mem, isAsync, cfg.StoreFile)
 	if err != nil {
 		log.Fatal().Timestamp().Err(err).Msg("ошибка инициализации роутера")
-		os.Exit(1)
 	}
 	log.Info().Timestamp().Msg("роутер инициализирован")
 
@@ -99,17 +93,4 @@ func main() {
 
 	log.Info().Timestamp().Msg("сервер остановлен")
 	os.Exit(0)
-}
-
-func parseFlagsAndEnvs() {
-	flag.StringVar(&cfg.Address, "a", "localhost:8080", "адрес сервера")
-	flag.BoolVar(&cfg.Restore, "r", true, "восстановить метрики из файла")
-	flag.DurationVar(&cfg.StoreInterval, "i", 300*time.Second, "интервал сохранения метрик в файл")
-	flag.StringVar(&cfg.StoreFile, "f", "tmp/devops-metrics-db.json", "файл для сохранения метрик")
-	flag.Parse()
-
-	err := env.Parse(&cfg)
-	if err != nil {
-		log.Error().Timestamp().Err(err).Msg("ошибка парсинга конфига")
-	}
 }
