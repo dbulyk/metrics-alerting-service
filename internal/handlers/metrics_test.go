@@ -40,7 +40,7 @@ func testRequest(t *testing.T, ts *httptest.Server, method, path string, jsonDat
 
 func TestRouter(t *testing.T) {
 	mem := stores.NewMemStorage()
-	r, _ := MetricsRouter(mem, false, "")
+	r, _ := MetricsRouter(mem)
 	ts := httptest.NewServer(r)
 	defer ts.Close()
 
@@ -58,7 +58,7 @@ func TestRouter(t *testing.T) {
 
 func TestUpdateWithText(t *testing.T) {
 	mem := stores.NewMemStorage()
-	r, _ := MetricsRouter(mem, false, "")
+	r, _ := MetricsRouter(mem)
 	ts := httptest.NewServer(r)
 	defer ts.Close()
 
@@ -91,7 +91,7 @@ func TestUpdateWithText(t *testing.T) {
 
 func TestUpdateWithJSON(t *testing.T) {
 	mem := stores.NewMemStorage()
-	r, _ := MetricsRouter(mem, false, "")
+	r, _ := MetricsRouter(mem)
 	ts := httptest.NewServer(r)
 	defer ts.Close()
 
@@ -164,7 +164,7 @@ func TestUpdateWithJSON(t *testing.T) {
 
 func TestGetWithText(t *testing.T) {
 	mem := stores.NewMemStorage()
-	r, _ := MetricsRouter(mem, false, "")
+	r, _ := MetricsRouter(mem)
 	ts := httptest.NewServer(r)
 	defer ts.Close()
 
@@ -181,7 +181,7 @@ func TestGetWithText(t *testing.T) {
 
 func TestGetWithJSON(t *testing.T) {
 	mem := stores.NewMemStorage()
-	r, _ := MetricsRouter(mem, false, "")
+	r, _ := MetricsRouter(mem)
 	ts := httptest.NewServer(r)
 	defer ts.Close()
 
