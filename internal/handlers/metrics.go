@@ -6,7 +6,6 @@ import (
 	"github.com/dbulyk/metrics-alerting-service/internal/middlewares"
 	"github.com/dbulyk/metrics-alerting-service/internal/models"
 	"github.com/dbulyk/metrics-alerting-service/internal/stores"
-	"github.com/dbulyk/metrics-alerting-service/internal/utils"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/rs/zerolog/log"
@@ -17,16 +16,12 @@ import (
 )
 
 var (
-	mem            *stores.MemStorage
-	isAsynchronous bool
-	storeFile      string
+	mem *stores.MemStorage
 )
 
-func MetricsRouter(metrics *stores.MemStorage, isAsync bool, sFile string) (r chi.Router, err error) {
+func MetricsRouter(metrics *stores.MemStorage) (r chi.Router, err error) {
 	r = chi.NewRouter()
 	mem = metrics
-	isAsynchronous = isAsync
-	storeFile = sFile
 
 	r.Use(middleware.Logger)
 	r.Use(middleware.RequestID)
@@ -66,13 +61,6 @@ func UpdateWithJSON(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotImplemented)
 		w.Write([]byte(err.Error()))
 		return
-	}
-
-	if isAsynchronous {
-		err := utils.SaveMetrics(mem, storeFile)
-		if err != nil {
-			log.Error().Err(err).Msg("ошибка сохранения метрики в файл")
-		}
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -137,13 +125,6 @@ func UpdateWithText(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotImplemented)
 		w.Write([]byte(err.Error()))
 		return
-	}
-
-	if isAsynchronous {
-		err := utils.SaveMetrics(mem, storeFile)
-		if err != nil {
-			return
-		}
 	}
 
 	w.WriteHeader(http.StatusOK)

@@ -2,9 +2,10 @@ package config
 
 import (
 	"flag"
+	"time"
+
 	"github.com/caarlos0/env/v6"
 	"github.com/rs/zerolog/log"
-	"time"
 )
 
 type Server struct {
@@ -29,4 +30,12 @@ func NewServerCfg() (*Server, error) {
 		return nil, err
 	}
 	return &server, nil
+}
+
+func GetStoreFile() string {
+	return server.StoreFile
+}
+
+func GetStoreInterval() time.Duration {
+	return server.StoreInterval
 }

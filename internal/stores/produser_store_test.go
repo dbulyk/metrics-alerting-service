@@ -65,3 +65,34 @@ func TestProducer_Close(t *testing.T) {
 	_, err = producer.file.Stat()
 	assert.Error(t, err)
 }
+
+func TestSaveMetricsToFile(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	tmpfile, err := os.CreateTemp(tmpDir, "*.json")
+	require.NoError(t, err)
+
+	producer, err := NewProducer(tmpfile.Name())
+	require.NoError(t, err)
+	defer producer.file.Close()
+
+	mem := NewMemStorage()
+
+	v := 1.05
+	_, err = mem.SetMetric("testGauge", "gauge", &v, nil)
+	assert.NoError(t, err)
+
+	i := int64(2)
+	_, err = mem.SetMetric("testCounter", "counter", nil, &i)
+	assert.NoError(t, err)
+
+	tmpfile, err = os.CreateTemp("", "testfile.json")
+	require.NoError(t, err)
+	defer func(name string) {
+		err := os.Remove(name)
+		assert.NoError(t, err)
+	}(tmpfile.Name())
+
+	err = producer.Save(mem, tmpfile.Name())
+	assert.NoError(t, err)
+}

@@ -3,6 +3,7 @@ package stores
 import (
 	"encoding/json"
 	"github.com/dbulyk/metrics-alerting-service/internal/models"
+	"github.com/rs/zerolog/log"
 	"os"
 )
 
@@ -39,4 +40,22 @@ func (p *Producer) Write(metrics []*models.Metrics) error {
 
 func (p *Producer) Close() error {
 	return p.file.Close()
+}
+
+func (p *Producer) Save(mem *MemStorage, filename string) error {
+	listMetrics, _ := mem.ListMetrics()
+
+	defer func(p *Producer) {
+		err := p.Close()
+		if err != nil {
+			log.Error().Msgf("ошибка закрытия файла %s", filename)
+		}
+	}(p)
+
+	err := p.Write(listMetrics)
+	if err != nil {
+		return err
+	}
+	log.Info().Msgf("метрики сохранены в файл %s", filename)
+	return nil
 }

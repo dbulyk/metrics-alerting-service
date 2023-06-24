@@ -84,3 +84,45 @@ func TestConsumer_Close(t *testing.T) {
 	_, err = consumer.file.Stat()
 	assert.Error(t, err)
 }
+
+func TestRestoreMetricsFromFile(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	tmpfile, err := os.CreateTemp(tmpDir, "*.json")
+	require.NoError(t, err)
+
+	mem := NewMemStorage()
+
+	consumer, err := NewConsumer(tmpfile.Name())
+	require.NoError(t, err)
+	defer consumer.Close()
+
+	v := 1.05
+	_, err = mem.SetMetric("testGauge", "gauge", &v, nil)
+	assert.NoError(t, err)
+
+	i := int64(2)
+	_, err = mem.SetMetric("testCounter", "counter", nil, &i)
+	assert.NoError(t, err)
+
+	tmpfile, err = os.CreateTemp("", "testfile")
+	require.NoError(t, err)
+	defer os.Remove(tmpfile.Name())
+
+	producer, err := NewProducer(tmpfile.Name())
+	require.NoError(t, err)
+	defer producer.file.Close()
+
+	err = producer.Save(mem, tmpfile.Name())
+	require.NoError(t, err)
+
+	err = consumer.Restore(mem)
+	assert.NoError(t, err)
+
+	metrics, _ := mem.ListMetrics()
+	for _, expectedMetric := range metrics {
+		metric, err := mem.GetMetric(expectedMetric.ID, expectedMetric.MType)
+		assert.NoError(t, err)
+		assert.Equal(t, expectedMetric, metric)
+	}
+}

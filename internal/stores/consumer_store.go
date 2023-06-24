@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"encoding/json"
 	"github.com/dbulyk/metrics-alerting-service/internal/models"
+	"github.com/rs/zerolog/log"
 	"os"
 )
 
@@ -39,4 +40,27 @@ func (c *Consumer) Read() ([]models.Metrics, error) {
 
 func (c *Consumer) Close() error {
 	return c.file.Close()
+}
+
+func (c *Consumer) Restore(mem *MemStorage) error {
+	defer func(consumer *Consumer) {
+		err := consumer.Close()
+		if err != nil {
+			log.Error().Msgf("ошибка закрытия файла")
+		}
+	}(c)
+
+	metrics, err := c.Read()
+	if err != nil {
+		return err
+	}
+
+	for _, metric := range metrics {
+		_, err := mem.SetMetric(metric.ID, metric.MType, metric.Value, metric.Delta)
+		if err != nil {
+			return err
+		}
+	}
+	log.Info().Msgf("метрики восстановлены из файла")
+	return nil
 }

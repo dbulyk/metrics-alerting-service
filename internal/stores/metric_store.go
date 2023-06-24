@@ -2,8 +2,12 @@ package stores
 
 import (
 	"errors"
-	"github.com/dbulyk/metrics-alerting-service/internal/models"
 	"sync"
+	"time"
+
+	"github.com/dbulyk/metrics-alerting-service/config"
+	"github.com/dbulyk/metrics-alerting-service/internal/models"
+	"github.com/rs/zerolog/log"
 )
 
 type MetricStore interface {
@@ -14,13 +18,17 @@ type MetricStore interface {
 
 type MemStorage struct {
 	sync.Mutex
-	metrics []*models.Metrics
+	metrics       []*models.Metrics
+	storeInterval time.Duration
+	storeFile     string
 }
 
 func NewMemStorage() *MemStorage {
 	return &MemStorage{
-		metrics: make([]*models.Metrics, 0, 50),
-		Mutex:   sync.Mutex{},
+		metrics:       make([]*models.Metrics, 0, 50),
+		Mutex:         sync.Mutex{},
+		storeFile:     config.GetStoreFile(),
+		storeInterval: config.GetStoreInterval(),
 	}
 }
 
@@ -60,6 +68,18 @@ func (ms *MemStorage) SetMetric(id string, mType string, value *float64, delta *
 	}
 
 	ms.metrics = append(ms.metrics, m)
+
+	if len(ms.storeFile) != 0 && ms.storeInterval == 0 {
+		producer, err := NewProducer(ms.storeFile)
+		if err != nil {
+			return nil, err
+		}
+		err = producer.Save(ms, ms.storeFile)
+		if err != nil {
+			log.Error().Err(err).Msg("ошибка сохранения метрики в файл")
+		}
+	}
+
 	return m, nil
 }
 

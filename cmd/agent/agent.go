@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"encoding/json"
-	"github.com/dbulyk/metrics-alerting-service/config"
 	"io"
 	"log"
 	"math"
@@ -12,6 +11,8 @@ import (
 	"runtime"
 	"sync/atomic"
 	"time"
+
+	"github.com/dbulyk/metrics-alerting-service/config"
 
 	"github.com/dbulyk/metrics-alerting-service/internal/models"
 )
@@ -81,7 +82,10 @@ func collectAndSendMetrics(
 					isError = true
 					log.Printf("возникла ошибка при чтении ответа. Ошибка: %s", err.Error())
 				}
-				response.Body.Close()
+				err = response.Body.Close()
+				if err != nil {
+					return
+				}
 			}
 
 			if !isError {
