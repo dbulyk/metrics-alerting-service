@@ -2,9 +2,10 @@ package stores
 
 import (
 	"encoding/json"
+	"os"
+
 	"github.com/dbulyk/metrics-alerting-service/internal/models"
 	"github.com/rs/zerolog/log"
-	"os"
 )
 
 type Producer struct {
@@ -29,8 +30,8 @@ func NewProducer(filename string) (*Producer, error) {
 }
 
 func (p *Producer) Write(metrics []*models.Metrics) error {
-	for _, m := range metrics {
-		err := p.encoder.Encode(&m)
+	for i := range metrics {
+		err := p.encoder.Encode(&metrics[i])
 		if err != nil {
 			return err
 		}

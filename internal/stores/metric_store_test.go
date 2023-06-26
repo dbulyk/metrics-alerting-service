@@ -1,8 +1,9 @@
 package stores
 
 import (
-	"github.com/stretchr/testify/assert"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestSetMetric(t *testing.T) {

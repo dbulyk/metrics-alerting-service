@@ -29,14 +29,16 @@ func init() {
 }
 
 func main() {
+	defer os.Exit(0)
+
 	cfg, err := config.NewServerCfg()
 	if err != nil {
-		log.Fatal().Timestamp().Err(err).Msg("ошибка чтения конфига")
+		log.Panic().Timestamp().Err(err).Msg("ошибка чтения конфига")
 	}
 
 	r, err := handlers.MetricsRouter(mem)
 	if err != nil {
-		log.Fatal().Timestamp().Err(err).Msg("ошибка инициализации роутера")
+		log.Panic().Timestamp().Err(err).Msg("ошибка инициализации роутера")
 	}
 	log.Info().Timestamp().Msg("роутер инициализирован")
 
@@ -61,6 +63,7 @@ func main() {
 		if err != nil {
 			log.Error().Timestamp().Err(err).Msg("ошибка инициализации файла")
 		} else {
+			log.Info().Msgf("запускаем тикер записи метрик в файл")
 			writeTicker := time.NewTicker(cfg.StoreInterval)
 			go func() {
 				for range writeTicker.C {
@@ -70,13 +73,18 @@ func main() {
 					}
 				}
 			}()
-			defer writeTicker.Stop()
+
+			defer func() {
+				log.Info().Msgf("останавливаем тикер записи метрик в файл")
+				writeTicker.Stop()
+			}()
 		}
 	}
 
 	srv := &http.Server{
-		Addr:    cfg.Address,
-		Handler: r,
+		Addr:              cfg.Address,
+		Handler:           r,
+		ReadHeaderTimeout: 5 * time.Second,
 	}
 	log.Info().Timestamp().Msgf("сервер запускается на %s", cfg.Address)
 
@@ -106,5 +114,4 @@ func main() {
 	}
 
 	log.Info().Timestamp().Msg("сервер остановлен")
-	os.Exit(0)
 }

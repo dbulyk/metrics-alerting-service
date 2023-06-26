@@ -4,17 +4,18 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/dbulyk/metrics-alerting-service/internal/models"
-	"github.com/dbulyk/metrics-alerting-service/internal/stores"
-	"github.com/go-chi/chi/v5"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"strconv"
 	"testing"
+
+	"github.com/dbulyk/metrics-alerting-service/internal/models"
+	"github.com/dbulyk/metrics-alerting-service/internal/stores"
+	"github.com/go-chi/chi/v5"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestMain(m *testing.M) {
@@ -156,12 +157,11 @@ func TestUpdateWithJSON(t *testing.T) {
 
 	statusCode, body = testRequest(t, ts, "POST", "/value/", jsonData)
 	assert.Equal(t, http.StatusOK, statusCode)
+
 	err = json.Unmarshal([]byte(body), &m)
 	assert.NoError(t, err)
 	assert.Equal(t, int64(35), *m.Delta)
-
 }
-
 func TestGetWithText(t *testing.T) {
 	mem := stores.NewMemStorage()
 	r, _ := MetricsRouter(mem)

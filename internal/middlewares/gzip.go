@@ -2,9 +2,10 @@ package middlewares
 
 import (
 	"compress/gzip"
-	"github.com/rs/zerolog/log"
 	"net/http"
 	"strings"
+
+	"github.com/rs/zerolog/log"
 )
 
 type gzipWriter struct {

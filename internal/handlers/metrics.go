@@ -3,16 +3,22 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
+	"html/template"
+	"io"
+	"net/http"
+	"strconv"
+
 	"github.com/dbulyk/metrics-alerting-service/internal/middlewares"
 	"github.com/dbulyk/metrics-alerting-service/internal/models"
 	"github.com/dbulyk/metrics-alerting-service/internal/stores"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/rs/zerolog/log"
-	"html/template"
-	"io"
-	"net/http"
-	"strconv"
+)
+
+const (
+	counter = "counter"
+	gauge   = "gauge"
 )
 
 var (
@@ -96,7 +102,8 @@ func UpdateWithText(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if mType == "gauge" {
+	switch mType {
+	case gauge:
 		value, err := strconv.ParseFloat(chi.URLParam(r, "value"), 64)
 		if err != nil {
 			log.Error().Err(err).Msgf("ошибка парсинга значения метрики: %s", chi.URLParam(r, "value"))
@@ -104,7 +111,7 @@ func UpdateWithText(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		mValueFloat = &value
-	} else if mType == "counter" {
+	case counter:
 		value, err := strconv.ParseInt(chi.URLParam(r, "value"), 0, 64)
 		if err != nil {
 			log.Error().Err(err).Msgf("ошибка парсинга значения метрики: %s", chi.URLParam(r, "value"))
@@ -112,7 +119,7 @@ func UpdateWithText(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		mValueInt = &value
-	} else {
+	default:
 		log.Error().Msgf("пришел несуществующий тип метрики: %s", mType)
 		w.WriteHeader(http.StatusNotImplemented)
 		w.Write([]byte("такого типа метрики не существует"))
@@ -123,7 +130,10 @@ func UpdateWithText(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Error().Err(err).Msgf("ошибка обновления метрики: %s", mName)
 		w.WriteHeader(http.StatusNotImplemented)
-		w.Write([]byte(err.Error()))
+		_, err := w.Write([]byte(err.Error()))
+		if err != nil {
+			return
+		}
 		return
 	}
 
@@ -212,7 +222,7 @@ func GetWithText(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if mType == "counter" {
+	if mType == counter {
 		fmt.Fprint(w, *metric.Delta)
 	} else {
 		fmt.Fprint(w, *metric.Value)
