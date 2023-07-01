@@ -8,11 +8,12 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/rs/zerolog"
+
 	"github.com/dbulyk/metrics-alerting-service/config"
 
 	"github.com/dbulyk/metrics-alerting-service/internal/handlers"
 	"github.com/dbulyk/metrics-alerting-service/internal/stores"
-	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
 
@@ -20,15 +21,13 @@ var (
 	mem *stores.MemStorage
 )
 
-func init() {
+func main() {
 	output := zerolog.ConsoleWriter{Out: os.Stderr}
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 	log.Logger = zerolog.New(output).With().Timestamp().Logger()
 
 	mem = stores.NewMemStorage()
-}
 
-func main() {
 	defer os.Exit(0)
 
 	cfg, err := config.NewServerCfg()
@@ -109,7 +108,12 @@ func main() {
 		}
 	}
 
-	if err := srv.Shutdown(context.TODO()); err != nil {
+	ctxShutDown, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer func() {
+		cancel()
+	}()
+
+	if err := srv.Shutdown(ctxShutDown); err != nil {
 		log.Error().Timestamp().Err(err).Msg("ошибка остановки сервера")
 	}
 

@@ -22,45 +22,41 @@ var (
 )
 
 func main() {
+	var done = make(chan bool)
+	collectAndSendMetrics(done)
+	done <- true
+}
+
+func collectAndSendMetrics(done chan bool) {
 	cfg, err := config.NewAgentCfg()
 	if err != nil {
 		log.Fatalf("ошибка парсинга конфига: %v", err)
 	}
+
 	var (
-		metrics = make([]models.Metrics, 0, 50)
-		ch      = make(chan []models.Metrics)
-		done    = make(chan bool)
-		client  = &http.Client{}
+		metrics   = make([]models.Metrics, 0, 50)
+		client    = &http.Client{}
+		address   = cfg.Address
+		pollCount atomic.Int64
 	)
 
+	pollCount.Store(1)
 	pollTicker := time.NewTicker(cfg.PollInterval)
 	reportTicker := time.NewTicker(cfg.ReportInterval)
-
-	collectAndSendMetrics(ch, pollTicker, reportTicker, client, metrics, cfg.Address, done)
-	reportTicker.Stop()
-	pollTicker.Stop()
-	done <- true
-}
-
-func collectAndSendMetrics(
-	ch chan []models.Metrics,
-	pollTicker *time.Ticker,
-	reportTicker *time.Ticker,
-	client *http.Client,
-	metrics []models.Metrics,
-	address string,
-	done chan bool,
-) {
-	var pollCount atomic.Int64
-	pollCount.Store(1)
+	defer func() {
+		pollTicker.Stop()
+		reportTicker.Stop()
+	}()
 
 	for {
 		select {
 		case <-pollTicker.C:
-			go collectMetrics(ch, &pollCount)
-			metrics = <-ch
+			println("Сбор метрик")
+			metrics = collectMetrics(&pollCount)
 			pollCount.Add(1)
+			println("Сбор метрик завершен")
 		case <-reportTicker.C:
+			println("Отправка метрик")
 			isError := false
 			for _, m := range metrics {
 				request, err := createRequestToMetricsUpdate(m, address)
@@ -89,6 +85,7 @@ func collectAndSendMetrics(
 			}
 
 			if !isError {
+				println("Отправка метрик завершена")
 				pollCount.Swap(1)
 			}
 		case <-done:
@@ -112,12 +109,12 @@ func createRequestToMetricsUpdate(metrics models.Metrics, address string) (*http
 	return request, nil
 }
 
-func collectMetrics(ch chan []models.Metrics, count *atomic.Int64) {
+func collectMetrics(count *atomic.Int64) (metrics []models.Metrics) {
 	runtime.ReadMemStats(&rtm)
 	randomValue := rand.Float64()
 	countValue := count.Load()
 
-	ch <- []models.Metrics{
+	return []models.Metrics{
 		{
 			ID:    "Alloc",
 			MType: "gauge",
