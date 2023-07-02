@@ -51,12 +51,12 @@ func collectAndSendMetrics(done chan bool) {
 	for {
 		select {
 		case <-pollTicker.C:
-			println("Сбор метрик")
+			log.Print("Сбор метрик")
 			metrics = collectMetrics(&pollCount)
 			pollCount.Add(1)
-			println("Сбор метрик завершен")
+			log.Print("Сбор метрик завершен")
 		case <-reportTicker.C:
-			println("Отправка метрик")
+			log.Print("Отправка метрик")
 			isError := false
 			for _, m := range metrics {
 				request, err := createRequestToMetricsUpdate(m, address)
@@ -85,7 +85,7 @@ func collectAndSendMetrics(done chan bool) {
 			}
 
 			if !isError {
-				println("Отправка метрик завершена")
+				log.Print("Отправка метрик завершена")
 				pollCount.Swap(1)
 			}
 		case <-done:
