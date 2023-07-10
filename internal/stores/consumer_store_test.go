@@ -34,11 +34,11 @@ func TestConsumer_Read(t *testing.T) {
 
 	mem := NewMemStorage()
 	v := 1.05
-	_, err = mem.SetMetric("testGauge", "gauge", &v, nil)
+	_, err = mem.SetMetric("testGauge", "gauge", &v, nil, "")
 	assert.NoError(t, err)
 
 	i := int64(2)
-	_, err = mem.SetMetric("testCounter", "counter", nil, &i)
+	_, err = mem.SetMetric("testCounter", "counter", nil, &i, "")
 	assert.NoError(t, err)
 
 	testMetrics, _ := mem.ListMetrics()
@@ -61,7 +61,7 @@ func TestConsumer_Read(t *testing.T) {
 	require.NoError(t, err)
 
 	for _, metric := range metrics {
-		_, err := mem1.SetMetric(metric.ID, metric.MType, metric.Value, metric.Delta)
+		_, err := mem1.SetMetric(metric.ID, metric.MType, metric.Value, metric.Delta, "")
 		require.NoError(t, err)
 	}
 
@@ -98,11 +98,11 @@ func TestRestoreMetricsFromFile(t *testing.T) {
 	defer consumer.Close()
 
 	v := 1.05
-	_, err = mem.SetMetric("testGauge", "gauge", &v, nil)
+	_, err = mem.SetMetric("testGauge", "gauge", &v, nil, "")
 	assert.NoError(t, err)
 
 	i := int64(2)
-	_, err = mem.SetMetric("testCounter", "counter", nil, &i)
+	_, err = mem.SetMetric("testCounter", "counter", nil, &i, "")
 	assert.NoError(t, err)
 
 	tmpfile, err = os.CreateTemp("", "testfile")

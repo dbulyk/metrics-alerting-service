@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"html/template"
 	"io"
@@ -61,9 +62,13 @@ func UpdateWithJSON(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	metric, err := mem.SetMetric(m.ID, m.MType, m.Value, m.Delta)
+	metric, err := mem.SetMetric(m.ID, m.MType, m.Value, m.Delta, m.Hash)
 	if err != nil {
-		log.Error().Err(err).Msg("ошибка обновления метрики")
+		if errors.Is(err, stores.InvalidHashErr) {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte(err.Error()))
+			return
+		}
 		w.WriteHeader(http.StatusNotImplemented)
 		w.Write([]byte(err.Error()))
 		return
@@ -94,6 +99,7 @@ func UpdateWithText(w http.ResponseWriter, r *http.Request) {
 
 	mType := chi.URLParam(r, "type")
 	mName := chi.URLParam(r, "name")
+	mHash := chi.URLParam(r, "hash")
 
 	if len(mType) == 0 || len(mName) == 0 || len(chi.URLParam(r, "value")) == 0 {
 		log.Error().Msgf("тип, имя или значение метрики не заданы. mType: %s, mName: %s, mValue: %s",
@@ -126,7 +132,7 @@ func UpdateWithText(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err := mem.SetMetric(mName, mType, mValueFloat, mValueInt)
+	_, err := mem.SetMetric(mName, mType, mValueFloat, mValueInt, mHash)
 	if err != nil {
 		log.Error().Err(err).Msgf("ошибка обновления метрики: %s", mName)
 		w.WriteHeader(http.StatusNotImplemented)

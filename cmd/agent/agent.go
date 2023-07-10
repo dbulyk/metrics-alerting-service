@@ -3,6 +3,8 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
+	"github.com/dbulyk/metrics-alerting-service/internal/hashes"
 	"io"
 	"log"
 	"math"
@@ -36,7 +38,6 @@ func collectAndSendMetrics(done chan bool) {
 	var (
 		metrics   = make([]models.Metrics, 0, 50)
 		client    = &http.Client{}
-		address   = cfg.Address
 		pollCount atomic.Int64
 	)
 
@@ -59,7 +60,7 @@ func collectAndSendMetrics(done chan bool) {
 			log.Print("Отправка метрик")
 			isError := false
 			for _, m := range metrics {
-				request, err := createRequestToMetricsUpdate(m, address)
+				request, err := createRequestToMetricsUpdate(m, cfg.Address, cfg.Key)
 				if err != nil {
 					isError = true
 					log.Printf("возникла ошибка при создании запроса. Ошибка: %s", err.Error())
@@ -94,8 +95,17 @@ func collectAndSendMetrics(done chan bool) {
 	}
 }
 
-func createRequestToMetricsUpdate(metrics models.Metrics, address string) (*http.Request, error) {
-	jsonData, err := json.Marshal(metrics)
+func createRequestToMetricsUpdate(metric models.Metrics, address string, key string) (*http.Request, error) {
+	if len(key) != 0 {
+		switch metric.MType {
+		case "gauge":
+			metric.Hash = hashes.Hash(fmt.Sprintf("%s:gauge:%f", metric.ID, *metric.Value), key)
+		case "counter":
+			metric.Hash = hashes.Hash(fmt.Sprintf("%s:counter:%d", metric.ID, *metric.Delta), key)
+		}
+	}
+
+	jsonData, err := json.Marshal(metric)
 	if err != nil {
 		return nil, err
 	}

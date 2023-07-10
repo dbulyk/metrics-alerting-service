@@ -57,7 +57,7 @@ func (c *Consumer) Restore(mem *MemStorage) error {
 	}
 
 	for _, metric := range metrics {
-		_, err := mem.SetMetric(metric.ID, metric.MType, metric.Value, metric.Delta)
+		_, err := mem.SetMetric(metric.ID, metric.MType, metric.Value, metric.Delta, metric.Hash)
 		if err != nil {
 			return err
 		}

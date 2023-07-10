@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/dbulyk/metrics-alerting-service/internal/hashes"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -97,11 +98,13 @@ func TestUpdateWithJSON(t *testing.T) {
 	defer ts.Close()
 
 	delta := int64(20)
+	hash := hashes.Hash(fmt.Sprintf("%s:counter:%d", "testCounter1", &delta), "test")
 	jsonData, err := json.Marshal(models.Metrics{
 		ID:    "testCounter1",
 		MType: "counter",
 		Delta: &delta,
 		Value: nil,
+		Hash:  hash,
 	})
 	assert.NoError(t, err)
 
@@ -162,6 +165,7 @@ func TestUpdateWithJSON(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, int64(35), *m.Delta)
 }
+
 func TestGetWithText(t *testing.T) {
 	mem := stores.NewMemStorage()
 	r, _ := MetricsRouter(mem)
