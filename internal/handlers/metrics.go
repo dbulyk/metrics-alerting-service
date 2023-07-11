@@ -64,7 +64,7 @@ func UpdateWithJSON(w http.ResponseWriter, r *http.Request) {
 
 	metric, err := mem.SetMetric(m.ID, m.MType, m.Value, m.Delta, m.Hash)
 	if err != nil {
-		if errors.Is(err, stores.InvalidHashErr) {
+		if errors.Is(err, stores.ErrInvalidHash) {
 			w.WriteHeader(http.StatusBadRequest)
 			w.Write([]byte(err.Error()))
 			return

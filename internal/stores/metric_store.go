@@ -3,13 +3,19 @@ package stores
 import (
 	"errors"
 	"fmt"
-	"github.com/dbulyk/metrics-alerting-service/internal/hashes"
 	"sync"
 	"time"
+
+	"github.com/dbulyk/metrics-alerting-service/internal/hashes"
 
 	"github.com/dbulyk/metrics-alerting-service/config"
 	"github.com/dbulyk/metrics-alerting-service/internal/models"
 	"github.com/rs/zerolog/log"
+)
+
+const (
+	counter = "counter"
+	gauge   = "gauge"
 )
 
 type MetricStore interface {
@@ -26,9 +32,9 @@ type MemStorage struct {
 }
 
 var (
-	InvalidHashErr       = errors.New("входящий хэш не совпадает с вычисленным")
-	InvalidMetricErr     = errors.New("метрики с такими параметрами не существует")
-	InvalidMetricTypeErr = errors.New("такого типа метрик не существует")
+	ErrInvalidHash       = errors.New("входящий хэш не совпадает с вычисленным")
+	ErrInvalidMetric     = errors.New("метрики с такими параметрами не существует")
+	ErrInvalidMetricType = errors.New("такого типа метрик не существует")
 )
 
 func NewMemStorage() *MemStorage {
@@ -52,30 +58,30 @@ func (ms *MemStorage) SetMetric(id string, mType string, value *float64, delta *
 	ms.Lock()
 	defer ms.Unlock()
 
-	if mType != "counter" && mType != "gauge" {
+	if mType != counter && mType != gauge {
 		log.Error().Msgf("тип метрики %s не существует", mType)
-		return nil, InvalidMetricTypeErr
+		return nil, ErrInvalidMetricType
 	}
 
 	key := config.GetKey()
 	if len(key) != 0 {
 		var newHash string
 		switch mType {
-		case "gauge":
+		case gauge:
 			newHash = fmt.Sprintf("%s:gauge:%f", id, *value)
-		case "counter":
+		case counter:
 			newHash = fmt.Sprintf("%s:counter:%d", id, *delta)
 		}
 
 		if !hashes.ValidHash(newHash, hash, key) {
 			log.Error().Msgf("входящий хэш не совпадает с вычисленным. Метрика %s не будет добавлена", id)
-			return nil, InvalidHashErr
+			return nil, ErrInvalidHash
 		}
 	}
 
 	for _, m := range ms.metrics {
 		if m.ID == id && m.MType == mType {
-			if m.MType == "counter" {
+			if m.MType == counter {
 				d := *m.Delta + *delta
 				m.Delta = &d
 			} else {
@@ -119,5 +125,5 @@ func (ms *MemStorage) GetMetric(id string, mType string) (*models.Metrics, error
 		}
 	}
 	ms.Unlock()
-	return nil, InvalidMetricErr
+	return nil, ErrInvalidMetric
 }

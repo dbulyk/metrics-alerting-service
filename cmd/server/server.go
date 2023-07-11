@@ -58,7 +58,7 @@ func main() {
 
 	if len(cfg.StoreFile) != 0 && cfg.StoreInterval != 0 {
 		log.Info().Msgf("запуск записи метрик в файл с интервалом в %s секунд", cfg.StoreInterval)
-		producer, err := stores.NewProducer(cfg.StoreFile)
+
 		if err != nil {
 			log.Error().Timestamp().Err(err).Msg("ошибка инициализации файла")
 		} else {
@@ -66,7 +66,13 @@ func main() {
 			writeTicker := time.NewTicker(cfg.StoreInterval)
 			go func() {
 				for range writeTicker.C {
-					err := producer.Save(mem, cfg.StoreFile)
+					producer, err := stores.NewProducer(cfg.StoreFile)
+					if err != nil {
+						log.Error().Err(err).Msg("ошибка инициализации файла")
+						return
+					}
+
+					err = producer.Save(mem, cfg.StoreFile)
 					if err != nil {
 						log.Error().Timestamp().Err(err).Msg("ошибка сохранения метрик")
 					}
