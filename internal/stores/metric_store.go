@@ -64,20 +64,19 @@ func (ms *MemStorage) SetMetric(metric models.Metrics, restore bool) (*models.Me
 		return nil, ErrInvalidMetricType
 	}
 
-	mHash := ""
+	var mHash, s string
 	key := config.GetKey()
 	if len(key) != 0 && !restore {
-		var m string
 		switch metric.MType {
 		case gauge:
 			log.Info().Msgf("получено значение метрики %s:%s:%f", metric.ID, metric.MType, *metric.Value)
-			m = fmt.Sprintf("%s:%s:%f", metric.ID, metric.MType, *metric.Value)
+			s = fmt.Sprintf("%s:%s:%f", metric.ID, metric.MType, *metric.Value)
 		case counter:
 			log.Info().Msgf("получено значение метрики %s:%s:%d", metric.ID, metric.MType, *metric.Delta)
-			m = fmt.Sprintf("%s:%s:%d", metric.ID, metric.MType, *metric.Delta)
+			s = fmt.Sprintf("%s:%s:%d", metric.ID, metric.MType, *metric.Delta)
 		}
 
-		mHash = hashes.Hash(m, key)
+		mHash = hashes.Hash(s, key)
 		if !hmac.Equal([]byte(mHash), []byte(metric.Hash)) {
 			log.Error().Msgf("входящий хэш не совпадает с вычисленным. Метрика %s не будет добавлена", metric.ID)
 			return nil, ErrInvalidHash
@@ -89,6 +88,8 @@ func (ms *MemStorage) SetMetric(metric models.Metrics, restore bool) (*models.Me
 			if m.MType == counter {
 				d := *m.Delta + *metric.Delta
 				m.Delta = &d
+				s = fmt.Sprintf("%s:%s:%d", m.ID, m.MType, *m.Delta)
+				mHash = hashes.Hash(s, key)
 			} else {
 				m.Value = metric.Value
 			}
