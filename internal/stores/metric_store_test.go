@@ -3,6 +3,8 @@ package stores
 import (
 	"testing"
 
+	"github.com/dbulyk/metrics-alerting-service/internal/models"
+
 	"github.com/stretchr/testify/assert"
 )
 
@@ -10,11 +12,23 @@ func TestSetMetric(t *testing.T) {
 	storage := &MemStorage{}
 
 	value := 12.5
-	_, err := storage.SetMetric("test_metric_gauge", "gauge", &value, nil, "")
-	assert.NoError(t, err, "ожидалось отстутствие ошибки")
+	_, err := storage.SetMetric(models.Metrics{
+		ID:    "test_metric_gauge",
+		MType: "gauge",
+		Delta: nil,
+		Value: &value,
+		Hash:  "",
+	}, true)
+	assert.NoError(t, err, "ожидалось отсутствие ошибки")
 	delta := int64(12)
-	_, err = storage.SetMetric("test_metric_counter", "counter", nil, &delta, "")
-	assert.NoError(t, err, "ожидалось отстутствие ошибки")
+	_, err = storage.SetMetric(models.Metrics{
+		ID:    "test_metric_counter",
+		MType: "counter",
+		Delta: &delta,
+		Value: nil,
+		Hash:  "",
+	}, true)
+	assert.NoError(t, err, "ожидалось отсутствие ошибки")
 
 	metrics, _ := storage.ListMetrics()
 	assert.Lenf(t, metrics, 2, "ожидалось две метрики, получено %d", len(metrics))
@@ -23,7 +37,13 @@ func TestSetMetric(t *testing.T) {
 	assert.EqualValuesf(t, &value, metrics[0].Value, "ожидаемое значение метрики 12.5, получено %f", *metrics[0].Value)
 	assert.EqualValuesf(t, &delta, metrics[1].Delta, "ожидаемое значение метрики 12, получено %d", *metrics[1].Delta)
 
-	_, err = storage.SetMetric("test_metric_counter", "counter", nil, &delta, "")
+	_, err = storage.SetMetric(models.Metrics{
+		ID:    "test_metric_counter",
+		MType: "counter",
+		Delta: &delta,
+		Value: nil,
+		Hash:  "",
+	}, true)
 	assert.NoErrorf(t, err, "ошибка обновления существующей метрики: %v", err)
 
 	resultDelta := int64(24)
@@ -35,7 +55,13 @@ func TestGetMetric(t *testing.T) {
 	storage := &MemStorage{}
 
 	value := 12.5
-	_, err := storage.SetMetric("test_metric_gauge", "gauge", &value, nil, "")
+	_, err := storage.SetMetric(models.Metrics{
+		ID:    "test_metric_gauge",
+		MType: "gauge",
+		Delta: nil,
+		Value: &value,
+		Hash:  "",
+	}, true)
 	assert.NoError(t, err, "ожидалось отстутствие ошибки")
 
 	metric1, err := storage.GetMetric("test_metric_gauge", "gauge")
@@ -45,7 +71,13 @@ func TestGetMetric(t *testing.T) {
 	assert.EqualValuesf(t, &value, metric1.Value, "ожидаемое значение метрики 12.5, получено %p", metric1.Value)
 
 	delta := int64(12)
-	_, err = storage.SetMetric("test_metric_counter2", "counter", nil, &delta, "")
+	_, err = storage.SetMetric(models.Metrics{
+		ID:    "test_metric_counter2",
+		MType: "counter",
+		Delta: &delta,
+		Value: nil,
+		Hash:  "",
+	}, true)
 	assert.NoError(t, err, "ожидалось отстутствие ошибки")
 
 	metric2, err := storage.GetMetric("test_metric_counter2", "counter")

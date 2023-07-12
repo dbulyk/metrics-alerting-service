@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/dbulyk/metrics-alerting-service/internal/hashes"
 	"io"
 	"log"
 	"math"
@@ -13,6 +12,8 @@ import (
 	"runtime"
 	"sync/atomic"
 	"time"
+
+	"github.com/dbulyk/metrics-alerting-service/internal/hashes"
 
 	"github.com/dbulyk/metrics-alerting-service/config"
 
@@ -60,7 +61,7 @@ func collectAndSendMetrics(done chan bool) {
 			log.Print("Отправка метрик")
 			isError := false
 			for _, m := range metrics {
-				request, err := createRequestToMetricsUpdate(m, cfg.Address, cfg.Key)
+				request, err := createRequestToMetricsUpdate(&m, cfg.Address, cfg.Key)
 				if err != nil {
 					isError = true
 					log.Printf("возникла ошибка при создании запроса. Ошибка: %s", err.Error())
@@ -95,13 +96,14 @@ func collectAndSendMetrics(done chan bool) {
 	}
 }
 
-func createRequestToMetricsUpdate(metric models.Metrics, address string, key string) (*http.Request, error) {
+func createRequestToMetricsUpdate(metric *models.Metrics, address string, key string) (*http.Request, error) {
 	if len(key) != 0 {
 		switch metric.MType {
 		case "gauge":
-			metric.Hash = hashes.Hash(fmt.Sprintf("%s:gauge:%f", metric.ID, *metric.Value), key)
+			metric.Hash = hashes.Hash(fmt.Sprintf("%s:%s:%f", metric.ID, metric.MType, *metric.Value), key)
 		case "counter":
-			metric.Hash = hashes.Hash(fmt.Sprintf("%s:counter:%d", metric.ID, *metric.Delta), key)
+			println(*metric.Delta)
+			metric.Hash = hashes.Hash(fmt.Sprintf("%s:%s:%d", metric.ID, metric.MType, *metric.Delta), key)
 		}
 	}
 

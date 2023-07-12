@@ -19,7 +19,7 @@ func TestCreateRequestToMetricsUpdate(t *testing.T) {
 		Delta: nil,
 		Value: &val,
 	}
-	request, err := createRequestToMetricsUpdate(metric, "localhost:8080", "test")
+	request, err := createRequestToMetricsUpdate(&metric, "localhost:8080", "test")
 
 	expectedEndpoint := "http://localhost:8080/update/"
 	assert.NoErrorf(t, err, "функция не должна была вернуть ошибку, но вернула %s", err)

@@ -4,6 +4,8 @@ import (
 	"os"
 	"testing"
 
+	"github.com/dbulyk/metrics-alerting-service/internal/models"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -34,11 +36,23 @@ func TestProducer_Write(t *testing.T) {
 
 	mem := NewMemStorage()
 	v := 1.05
-	_, err = mem.SetMetric("testGauge", "gauge", &v, nil, "")
+	_, err = mem.SetMetric(models.Metrics{
+		ID:    "testGauge",
+		MType: "gauge",
+		Delta: nil,
+		Value: &v,
+		Hash:  "",
+	}, true)
 	assert.NoError(t, err)
 
 	i := int64(2)
-	_, err = mem.SetMetric("testCounter", "counter", nil, &i, "")
+	_, err = mem.SetMetric(models.Metrics{
+		ID:    "testCounter",
+		MType: "counter",
+		Delta: &i,
+		Value: nil,
+		Hash:  "",
+	}, true)
 	assert.NoError(t, err)
 
 	metrics, _ := mem.ListMetrics()
@@ -80,11 +94,23 @@ func TestSaveMetricsToFile(t *testing.T) {
 	mem := NewMemStorage()
 
 	v := 1.05
-	_, err = mem.SetMetric("testGauge", "gauge", &v, nil, "")
+	_, err = mem.SetMetric(models.Metrics{
+		ID:    "testGauge",
+		MType: "gauge",
+		Delta: nil,
+		Value: &v,
+		Hash:  "",
+	}, true)
 	assert.NoError(t, err)
 
 	i := int64(2)
-	_, err = mem.SetMetric("testCounter", "counter", nil, &i, "")
+	_, err = mem.SetMetric(models.Metrics{
+		ID:    "testCounter",
+		MType: "counter",
+		Delta: &i,
+		Value: nil,
+		Hash:  "",
+	}, true)
 	assert.NoError(t, err)
 
 	tmpfile, err = os.CreateTemp("", "testfile.json")

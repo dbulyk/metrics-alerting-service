@@ -1,6 +1,7 @@
 package stores
 
 import (
+	"crypto/hmac"
 	"errors"
 	"fmt"
 	"sync"
@@ -18,6 +19,12 @@ const (
 	gauge   = "gauge"
 )
 
+var (
+	ErrInvalidHash       = errors.New("входящий хэш не совпадает с вычисленным")
+	ErrInvalidMetric     = errors.New("метрики с такими параметрами не существует")
+	ErrInvalidMetricType = errors.New("такого типа метрик не существует")
+)
+
 type MetricStore interface {
 	SetMetric(id string, mType string, value *float64, delta *int64) (*models.Metrics, error)
 	GetMetric(mName string, mType string) (*models.Metrics, error)
@@ -30,12 +37,6 @@ type MemStorage struct {
 	storeInterval time.Duration
 	storeFile     string
 }
-
-var (
-	ErrInvalidHash       = errors.New("входящий хэш не совпадает с вычисленным")
-	ErrInvalidMetric     = errors.New("метрики с такими параметрами не существует")
-	ErrInvalidMetricType = errors.New("такого типа метрик не существует")
-)
 
 func NewMemStorage() *MemStorage {
 	return &MemStorage{
@@ -54,52 +55,49 @@ func (ms *MemStorage) ListMetrics() ([]*models.Metrics, error) {
 	return listMetrics, nil
 }
 
-func (ms *MemStorage) SetMetric(id string, mType string, value *float64, delta *int64, hash string) (*models.Metrics, error) {
+func (ms *MemStorage) SetMetric(metric models.Metrics, restore bool) (*models.Metrics, error) {
 	ms.Lock()
 	defer ms.Unlock()
 
-	if mType != counter && mType != gauge {
-		log.Error().Msgf("тип метрики %s не существует", mType)
+	if metric.MType != counter && metric.MType != gauge {
+		log.Error().Msgf("типа метрики %s не существует", metric.MType)
 		return nil, ErrInvalidMetricType
 	}
 
+	mHash := ""
 	key := config.GetKey()
-	if len(key) != 0 {
-		var newHash string
-		switch mType {
+	if len(key) != 0 && !restore {
+		var m string
+		switch metric.MType {
 		case gauge:
-			newHash = fmt.Sprintf("%s:gauge:%f", id, *value)
+			log.Info().Msgf("получено значение метрики %s:%s:%f", metric.ID, metric.MType, *metric.Value)
+			m = fmt.Sprintf("%s:%s:%f", metric.ID, metric.MType, *metric.Value)
 		case counter:
-			newHash = fmt.Sprintf("%s:counter:%d", id, *delta)
+			log.Info().Msgf("получено значение метрики %s:%s:%d", metric.ID, metric.MType, *metric.Delta)
+			m = fmt.Sprintf("%s:%s:%d", metric.ID, metric.MType, *metric.Delta)
 		}
 
-		if !hashes.ValidHash(newHash, hash, key) {
-			log.Error().Msgf("входящий хэш не совпадает с вычисленным. Метрика %s не будет добавлена", id)
+		mHash = hashes.Hash(m, key)
+		if !hmac.Equal([]byte(mHash), []byte(metric.Hash)) {
+			log.Error().Msgf("входящий хэш не совпадает с вычисленным. Метрика %s не будет добавлена", metric.ID)
 			return nil, ErrInvalidHash
 		}
 	}
 
 	for _, m := range ms.metrics {
-		if m.ID == id && m.MType == mType {
+		if m.ID == metric.ID && m.MType == metric.MType {
 			if m.MType == counter {
-				d := *m.Delta + *delta
+				d := *m.Delta + *metric.Delta
 				m.Delta = &d
 			} else {
-				m.Value = value
+				m.Value = metric.Value
 			}
+			m.Hash = mHash
 			return m, nil
 		}
 	}
 
-	m := &models.Metrics{
-		ID:    id,
-		MType: mType,
-		Value: value,
-		Delta: delta,
-		Hash:  hash,
-	}
-
-	ms.metrics = append(ms.metrics, m)
+	ms.metrics = append(ms.metrics, &metric)
 
 	if len(ms.storeFile) != 0 && ms.storeInterval == 0 {
 		producer, err := NewProducer(ms.storeFile)
@@ -113,7 +111,7 @@ func (ms *MemStorage) SetMetric(id string, mType string, value *float64, delta *
 		}
 	}
 
-	return m, nil
+	return &metric, nil
 }
 
 func (ms *MemStorage) GetMetric(id string, mType string) (*models.Metrics, error) {

@@ -57,9 +57,9 @@ func (c *Consumer) Restore(mem *MemStorage) error {
 	}
 
 	for _, metric := range metrics {
-		_, err := mem.SetMetric(metric.ID, metric.MType, metric.Value, metric.Delta, metric.Hash)
+		_, err = mem.SetMetric(metric, true)
 		if err != nil {
-			return err
+			log.Error().Err(err).Msgf("ошибка восстановления метрики %s", metric.ID)
 		}
 	}
 	log.Info().Msgf("метрики восстановлены из файла")

@@ -62,7 +62,7 @@ func UpdateWithJSON(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	metric, err := mem.SetMetric(m.ID, m.MType, m.Value, m.Delta, m.Hash)
+	metric, err := mem.SetMetric(m, false)
 	if err != nil {
 		if errors.Is(err, stores.ErrInvalidHash) {
 			w.WriteHeader(http.StatusBadRequest)
@@ -132,7 +132,13 @@ func UpdateWithText(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err := mem.SetMetric(mName, mType, mValueFloat, mValueInt, mHash)
+	_, err := mem.SetMetric(models.Metrics{
+		ID:    mName,
+		MType: mType,
+		Value: mValueFloat,
+		Delta: mValueInt,
+		Hash:  mHash,
+	}, false)
 	if err != nil {
 		log.Error().Err(err).Msgf("ошибка обновления метрики: %s", mName)
 		w.WriteHeader(http.StatusNotImplemented)
