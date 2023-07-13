@@ -40,7 +40,7 @@ func testRequest(t *testing.T, ts *httptest.Server, method, path string, jsonDat
 
 func TestRouter(t *testing.T) {
 	mem := NewRepository()
-	r, _ := NewRouter(mem)
+	r := NewRouter(mem)
 	ts := httptest.NewServer(r)
 	defer ts.Close()
 

@@ -17,10 +17,6 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-//var (
-//	mem *Repository
-//)
-
 type handler struct {
 	repository Repository
 	r          chi.Router
