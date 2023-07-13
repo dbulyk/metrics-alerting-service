@@ -14,24 +14,25 @@ type Server struct {
 	StoreFile     string        `env:"STORE_FILE"`
 	Restore       bool          `env:"RESTORE"`
 	Key           string        `env:"KEY"`
+	DatabaseDsn   string        `env:"DATABASE_DSN"`
 }
 
 var server Server
 
-func NewServerCfg() (*Server, error) {
+func GetServerCfg() Server {
 	flag.StringVar(&server.Address, "a", "localhost:8080", "адрес сервера")
 	flag.BoolVar(&server.Restore, "r", true, "восстановить метрики из файла")
 	flag.DurationVar(&server.StoreInterval, "i", 20*time.Second, "интервал сохранения метрик в файл")
-	flag.StringVar(&server.StoreFile, "f", "tmp/devops-metrics-db.json", "файл для сохранения метрик")
+	flag.StringVar(&server.StoreFile, "f", "tmp/devops-metric-db.json", "файл для сохранения метрик")
 	flag.StringVar(&server.Key, "k", "", "ключ подписи")
+	flag.StringVar(&server.DatabaseDsn, "d", "postgres://postgres:123@localhost:5432/postgres", "строка подключения к базе данных")
 	flag.Parse()
 
 	err := env.Parse(&server)
 	if err != nil {
-		log.Error().Timestamp().Err(err).Msg("ошибка парсинга конфига")
-		return nil, err
+		log.Fatal().Err(err).Msg("ошибка чтения конфига")
 	}
-	return &server, nil
+	return server
 }
 
 func GetStoreFile() string {

@@ -13,11 +13,10 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/dbulyk/metrics-alerting-service/internal/hashes"
+	"github.com/dbulyk/metrics-alerting-service/internal/metric"
+	"github.com/dbulyk/metrics-alerting-service/internal/utils"
 
 	"github.com/dbulyk/metrics-alerting-service/config"
-
-	"github.com/dbulyk/metrics-alerting-service/internal/models"
 )
 
 var (
@@ -37,7 +36,7 @@ func collectAndSendMetrics(done chan bool) {
 	}
 
 	var (
-		metrics   = make([]models.Metrics, 0, 50)
+		metrics   = make([]metric.Metric, 0, 50)
 		client    = &http.Client{}
 		pollCount atomic.Int64
 	)
@@ -96,14 +95,14 @@ func collectAndSendMetrics(done chan bool) {
 	}
 }
 
-func createRequestToMetricsUpdate(metric *models.Metrics, address string, key string) (*http.Request, error) {
+func createRequestToMetricsUpdate(metric *metric.Metric, address string, key string) (*http.Request, error) {
 	if len(key) != 0 {
 		switch metric.MType {
 		case "gauge":
-			metric.Hash = hashes.Hash(fmt.Sprintf("%s:%s:%f", metric.ID, metric.MType, *metric.Value), key)
+			metric.Hash = utils.Hash(fmt.Sprintf("%s:%s:%f", metric.ID, metric.MType, *metric.Value), key)
 		case "counter":
 			println(*metric.Delta)
-			metric.Hash = hashes.Hash(fmt.Sprintf("%s:%s:%d", metric.ID, metric.MType, *metric.Delta), key)
+			metric.Hash = utils.Hash(fmt.Sprintf("%s:%s:%d", metric.ID, metric.MType, *metric.Delta), key)
 		}
 	}
 
@@ -121,12 +120,12 @@ func createRequestToMetricsUpdate(metric *models.Metrics, address string, key st
 	return request, nil
 }
 
-func collectMetrics(count *atomic.Int64) (metrics []models.Metrics) {
+func collectMetrics(count *atomic.Int64) (metrics []metric.Metric) {
 	runtime.ReadMemStats(&rtm)
 	randomValue := rand.Float64()
 	countValue := count.Load()
 
-	return []models.Metrics{
+	return []metric.Metric{
 		{
 			ID:    "Alloc",
 			MType: "gauge",

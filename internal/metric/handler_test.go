@@ -1,9 +1,10 @@
-package handlers
+package metric
 
 import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/dbulyk/metrics-alerting-service/internal/utils"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -11,10 +12,6 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/dbulyk/metrics-alerting-service/internal/hashes"
-
-	"github.com/dbulyk/metrics-alerting-service/internal/models"
-	"github.com/dbulyk/metrics-alerting-service/internal/stores"
 	"github.com/go-chi/chi/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -42,8 +39,8 @@ func testRequest(t *testing.T, ts *httptest.Server, method, path string, jsonDat
 }
 
 func TestRouter(t *testing.T) {
-	mem := stores.NewMemStorage()
-	r, _ := MetricsRouter(mem)
+	mem := NewRepository()
+	r, _ := NewRouter(mem)
 	ts := httptest.NewServer(r)
 	defer ts.Close()
 
@@ -60,8 +57,8 @@ func TestRouter(t *testing.T) {
 }
 
 func TestUpdateWithText(t *testing.T) {
-	mem := stores.NewMemStorage()
-	r, _ := MetricsRouter(mem)
+	mem := NewRepository()
+	r, _ := NewRouter(mem)
 	ts := httptest.NewServer(r)
 	defer ts.Close()
 
@@ -93,14 +90,14 @@ func TestUpdateWithText(t *testing.T) {
 }
 
 func TestUpdateWithJSON(t *testing.T) {
-	mem := stores.NewMemStorage()
-	r, _ := MetricsRouter(mem)
+	mem := NewRepository()
+	r, _ := NewRouter(mem)
 	ts := httptest.NewServer(r)
 	defer ts.Close()
 
 	delta := int64(20)
-	hash := hashes.Hash(fmt.Sprintf("%s:counter:%d", "testCounter1", &delta), "test")
-	jsonData, err := json.Marshal(models.Metrics{
+	hash := utils.Hash(fmt.Sprintf("%s:counter:%d", "testCounter1", &delta), "test")
+	jsonData, err := json.Marshal(Metric{
 		ID:    "testCounter1",
 		MType: "counter",
 		Delta: &delta,
@@ -112,7 +109,7 @@ func TestUpdateWithJSON(t *testing.T) {
 	statusCode, _ := testRequest(t, ts, "POST", "/update/", jsonData)
 	assert.Equal(t, http.StatusOK, statusCode)
 
-	jsonData, err = json.Marshal(models.Metrics{
+	jsonData, err = json.Marshal(Metric{
 		ID:    "testCounter1",
 		MType: "counter",
 		Delta: nil,
@@ -123,13 +120,13 @@ func TestUpdateWithJSON(t *testing.T) {
 	statusCode, body := testRequest(t, ts, "POST", "/value/", jsonData)
 	assert.Equal(t, http.StatusOK, statusCode)
 
-	var m models.Metrics
+	var m Metric
 	err = json.Unmarshal([]byte(body), &m)
 	assert.NoError(t, err)
 	assert.Equal(t, int64(20), *m.Delta)
 
 	delta = int64(15)
-	jsonData, err = json.Marshal(models.Metrics{
+	jsonData, err = json.Marshal(Metric{
 		ID:    "testCounter1",
 		MType: "counter",
 		Delta: &delta,
@@ -140,7 +137,7 @@ func TestUpdateWithJSON(t *testing.T) {
 	statusCode, _ = testRequest(t, ts, "POST", "/update/", jsonData)
 	assert.Equal(t, http.StatusOK, statusCode)
 
-	jsonData, err = json.Marshal(models.Metrics{
+	jsonData, err = json.Marshal(Metric{
 		ID:    "",
 		MType: "",
 		Delta: nil,
@@ -151,7 +148,7 @@ func TestUpdateWithJSON(t *testing.T) {
 	statusCode, _ = testRequest(t, ts, "POST", "/update/", jsonData)
 	assert.Equal(t, http.StatusNotImplemented, statusCode)
 
-	jsonData, err = json.Marshal(models.Metrics{
+	jsonData, err = json.Marshal(Metric{
 		ID:    "testCounter1",
 		MType: "counter",
 		Delta: nil,
@@ -168,8 +165,8 @@ func TestUpdateWithJSON(t *testing.T) {
 }
 
 func TestGetWithText(t *testing.T) {
-	mem := stores.NewMemStorage()
-	r, _ := MetricsRouter(mem)
+	mem := NewRepository()
+	r, _ := NewRouter(mem)
 	ts := httptest.NewServer(r)
 	defer ts.Close()
 
@@ -185,15 +182,15 @@ func TestGetWithText(t *testing.T) {
 }
 
 func TestGetWithJSON(t *testing.T) {
-	mem := stores.NewMemStorage()
-	r, _ := MetricsRouter(mem)
+	mem := NewRepository()
+	r, _ := NewRouter(mem)
 	ts := httptest.NewServer(r)
 	defer ts.Close()
 
 	statusCode, _ := testRequest(t, ts, "POST", "/update/gauge/testGauge/123.15", nil)
 	assert.Equal(t, http.StatusOK, statusCode)
 
-	jsonData, err := json.Marshal(models.Metrics{
+	jsonData, err := json.Marshal(Metric{
 		ID:    "testGauge",
 		MType: "gauge",
 		Delta: nil,
@@ -204,12 +201,12 @@ func TestGetWithJSON(t *testing.T) {
 	statusCode, body := testRequest(t, ts, "POST", "/value/", jsonData)
 	assert.Equal(t, http.StatusOK, statusCode)
 
-	var m models.Metrics
+	var m Metric
 	err = json.Unmarshal([]byte(body), &m)
 	assert.NoError(t, err)
 	assert.Equal(t, float64(123.15), *m.Value)
 
-	jsonData, err = json.Marshal(models.Metrics{
+	jsonData, err = json.Marshal(Metric{
 		ID:    "unknown",
 		MType: "gauge",
 		Delta: nil,
@@ -220,7 +217,7 @@ func TestGetWithJSON(t *testing.T) {
 	statusCode, _ = testRequest(t, ts, "POST", "/value/", jsonData)
 	assert.Equal(t, http.StatusNotFound, statusCode)
 
-	jsonData, err = json.Marshal(models.Metrics{
+	jsonData, err = json.Marshal(Metric{
 		ID:    "",
 		MType: "",
 		Delta: nil,
@@ -233,7 +230,7 @@ func TestGetWithJSON(t *testing.T) {
 }
 
 func TestUpdateWithTextIncorrect(t *testing.T) {
-	mem := stores.NewMemStorage()
+	mem := NewRepository()
 
 	router := chi.NewRouter()
 	router.Post("/{type}/{name}/{value}", UpdateWithText)

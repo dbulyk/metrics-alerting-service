@@ -1,19 +1,19 @@
 package main
 
 import (
+	"github.com/dbulyk/metrics-alerting-service/internal/metric"
 	"net/http"
 	"sync/atomic"
 	"testing"
 	"time"
 
-	"github.com/dbulyk/metrics-alerting-service/internal/models"
 	"github.com/jarcoal/httpmock"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestCreateRequestToMetricsUpdate(t *testing.T) {
 	val := 8.18
-	metric := models.Metrics{
+	metric := metric.Metric{
 		ID:    "test",
 		MType: "gauge",
 		Delta: nil,

@@ -1,4 +1,4 @@
-package handlers
+package metric
 
 import (
 	"encoding/json"
@@ -9,44 +9,47 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/dbulyk/metrics-alerting-service/internal/handlers"
+
 	"github.com/dbulyk/metrics-alerting-service/internal/middlewares"
-	"github.com/dbulyk/metrics-alerting-service/internal/models"
-	"github.com/dbulyk/metrics-alerting-service/internal/stores"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/rs/zerolog/log"
 )
 
-const (
-	counter = "counter"
-	gauge   = "gauge"
-)
+//var (
+//	mem *Repository
+//)
 
-var (
-	mem *stores.MemStorage
-)
-
-func MetricsRouter(metrics *stores.MemStorage) (r chi.Router, err error) {
-	r = chi.NewRouter()
-	mem = metrics
-
-	r.Use(middleware.Logger)
-	r.Use(middleware.RequestID)
-	r.Use(middleware.RealIP)
-	r.Use(middleware.Recoverer)
-	r.Use(middlewares.GzipMiddleware)
-
-	r.Route("/", func(r chi.Router) {
-		r.Get("/", GetAll)
-		r.Get("/value/{type}/{name}", GetWithText)
-		r.Post("/value/", GetWithJSON)
-		r.Post("/update/{type}/{name}/{value}", UpdateWithText)
-		r.Post("/update/", UpdateWithJSON)
-	})
-	return r, nil
+type handler struct {
+	repository Repository
+	r          chi.Router
 }
 
-func UpdateWithJSON(w http.ResponseWriter, r *http.Request) {
+func NewRouter(router *chi.Mux, metrics *Repository) (r handlers.Handler) {
+	return &handler{
+		repository: *metrics,
+		r:          router,
+	}
+}
+
+func (h *handler) Register(router *chi.Mux) {
+	router.Use(middleware.Logger)
+	router.Use(middleware.RequestID)
+	router.Use(middleware.RealIP)
+	router.Use(middleware.Recoverer)
+	router.Use(middlewares.GzipMiddleware)
+
+	router.Route("/", func(r chi.Router) {
+		r.Get("/", h.GetAll)
+		r.Get("/value/{type}/{name}", h.GetWithText)
+		r.Post("/value/", h.GetWithJSON)
+		r.Post("/update/{type}/{name}/{value}", h.UpdateWithText)
+		r.Post("/update/", h.UpdateWithJSON)
+	})
+}
+
+func (h *handler) UpdateWithJSON(w http.ResponseWriter, r *http.Request) {
 	defer func(Body io.ReadCloser) {
 		err := Body.Close()
 		if err != nil {
@@ -54,17 +57,16 @@ func UpdateWithJSON(w http.ResponseWriter, r *http.Request) {
 		}
 	}(r.Body)
 
-	var m models.Metrics
-
+	var m Metric
 	if err := json.NewDecoder(r.Body).Decode(&m); err != nil {
 		log.Error().Err(err).Msgf("ошибка декодирования JSON")
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
-	metric, err := mem.SetMetric(m, false)
+	metric, err := h.repository.SetMetric(m, false)
 	if err != nil {
-		if errors.Is(err, stores.ErrInvalidHash) {
+		if errors.Is(err, ErrInvalidHash) {
 			w.WriteHeader(http.StatusBadRequest)
 			w.Write([]byte(err.Error()))
 			return
@@ -75,7 +77,7 @@ func UpdateWithJSON(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(metric); err != nil {
+	if err = json.NewEncoder(w).Encode(metric); err != nil {
 		log.Error().Err(err).Msg("ошибка кодирования JSON")
 		w.WriteHeader(http.StatusBadRequest)
 		return
@@ -84,7 +86,7 @@ func UpdateWithJSON(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func UpdateWithText(w http.ResponseWriter, r *http.Request) {
+func (h *handler) UpdateWithText(w http.ResponseWriter, r *http.Request) {
 	defer func(Body io.ReadCloser) {
 		err := Body.Close()
 		if err != nil {
@@ -132,13 +134,14 @@ func UpdateWithText(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err := mem.SetMetric(models.Metrics{
+	metric := Metric{
 		ID:    mName,
 		MType: mType,
 		Value: mValueFloat,
 		Delta: mValueInt,
 		Hash:  mHash,
-	}, false)
+	}
+	_, err := h.repository.SetMetric(metric, false)
 	if err != nil {
 		log.Error().Err(err).Msgf("ошибка обновления метрики: %s", mName)
 		w.WriteHeader(http.StatusNotImplemented)
@@ -152,14 +155,14 @@ func UpdateWithText(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func GetAll(w http.ResponseWriter, r *http.Request) {
+func (h *handler) GetAll(w http.ResponseWriter, r *http.Request) {
 	defer func(Body io.ReadCloser) {
 		err := Body.Close()
 		if err != nil {
 			log.Error().Err(err).Msg("ошибка закрытия тела запроса")
 		}
 	}(r.Body)
-	metrics, _ := mem.ListMetrics()
+	metrics, _ := h.repository.ListMetrics()
 
 	tmpl, err := template.ParseFiles("templates/index.gohtml")
 	if err != nil {
@@ -175,7 +178,7 @@ func GetAll(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func GetWithJSON(w http.ResponseWriter, r *http.Request) {
+func (h *handler) GetWithJSON(w http.ResponseWriter, r *http.Request) {
 	defer func(Body io.ReadCloser) {
 		err := Body.Close()
 		if err != nil {
@@ -183,7 +186,7 @@ func GetWithJSON(w http.ResponseWriter, r *http.Request) {
 		}
 	}(r.Body)
 
-	var m models.Metrics
+	var m Metric
 
 	if err := json.NewDecoder(r.Body).Decode(&m); err != nil {
 		log.Error().Err(err).Msg("ошибка декодирования JSON")
@@ -191,7 +194,7 @@ func GetWithJSON(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	metric, err := mem.GetMetric(m.ID, m.MType)
+	metric, err := h.repository.GetMetric(m.ID, m.MType)
 	if err != nil {
 		log.Error().Err(err).Msgf("ошибка получения метрики: %s", m.ID)
 		w.WriteHeader(http.StatusNotFound)
@@ -208,7 +211,7 @@ func GetWithJSON(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func GetWithText(w http.ResponseWriter, r *http.Request) {
+func (h *handler) GetWithText(w http.ResponseWriter, r *http.Request) {
 	defer func(Body io.ReadCloser) {
 		err := Body.Close()
 		if err != nil {
@@ -226,7 +229,7 @@ func GetWithText(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "text/plain")
-	metric, err := mem.GetMetric(mName, mType)
+	metric, err := h.repository.GetMetric(mName, mType)
 	if err != nil {
 		log.Error().Err(err).Msgf("ошибка получения метрики: %s", mName)
 		w.WriteHeader(http.StatusNotFound)

@@ -2,6 +2,10 @@ package main
 
 import (
 	"context"
+
+	"github.com/dbulyk/metrics-alerting-service/internal/metric"
+	"github.com/go-chi/chi/v5"
+
 	"net/http"
 	"os"
 	"os/signal"
@@ -11,84 +15,79 @@ import (
 	"github.com/rs/zerolog"
 
 	"github.com/dbulyk/metrics-alerting-service/config"
-
-	"github.com/dbulyk/metrics-alerting-service/internal/handlers"
-	"github.com/dbulyk/metrics-alerting-service/internal/stores"
 	"github.com/rs/zerolog/log"
 )
 
-var (
-	mem *stores.MemStorage
-)
-
 func main() {
+	defer os.Exit(0)
+
 	output := zerolog.ConsoleWriter{Out: os.Stderr}
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 	log.Logger = zerolog.New(output).With().Timestamp().Logger()
 
-	mem = stores.NewMemStorage()
+	log.Info().Msg("получение кофигурации сервера")
+	cfg := config.GetServerCfg()
+	log.Info().Msg("конфигурация сервера получена")
 
-	defer os.Exit(0)
+	//log.Info().Msgf("подключение к базе данных по адресу: %s", cfg.DatabaseDsn)
+	//db, err := pgxpool.New(context.Background(), cfg.DatabaseDsn)
+	//if err != nil {
+	//	log.Panic().Timestamp().Err(err).Msg("ошибка открытия соединения с базой данных")
+	//}
+	//defer db.Close()
+	//
+	//err = db.Ping(context.Background())
+	//if err != nil {
+	//	log.Panic().Timestamp().Err(err).Msg("ошибка подключения к базе данных")
+	//}
 
-	cfg, err := config.NewServerCfg()
-	if err != nil {
-		log.Panic().Timestamp().Err(err).Msg("ошибка чтения конфига")
-	}
-
-	r, err := handlers.MetricsRouter(mem)
-	if err != nil {
-		log.Panic().Timestamp().Err(err).Msg("ошибка инициализации роутера")
-	}
+	mem := metric.NewRepository()
+	router := chi.NewRouter()
+	metricHandler := metric.NewRouter(router, &mem)
+	metricHandler.Register(router)
 	log.Info().Timestamp().Msg("роутер инициализирован")
 
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 
-	if cfg.Restore {
-		consumer, err := stores.NewConsumer(cfg.StoreFile)
-		if err != nil {
-			log.Error().Timestamp().Err(err).Msg("ошибка инициализации файла")
-		} else {
-			err = consumer.Restore(mem)
-			if err != nil {
-				log.Error().Timestamp().Err(err).Msg("ошибка восстановления метрик")
-			}
-		}
-	}
+	//if cfg.Restore {
+	//	consumer, err := stores.NewConsumer(cfg.StoreFile)
+	//	if err != nil {
+	//		log.Error().Timestamp().Err(err).Msg("ошибка инициализации файла")
+	//	} else {
+	//		err = consumer.Restore(mem)
+	//		if err != nil {
+	//			log.Error().Timestamp().Err(err).Msg("ошибка восстановления метрик")
+	//		}
+	//	}
+	//}
 
-	if len(cfg.StoreFile) != 0 && cfg.StoreInterval != 0 {
-		log.Info().Msgf("запуск записи метрик в файл с интервалом в %s секунд", cfg.StoreInterval)
-
-		if err != nil {
-			log.Error().Timestamp().Err(err).Msg("ошибка инициализации файла")
-		} else {
-			log.Info().Msgf("запускаем тикер записи метрик в файл")
-			writeTicker := time.NewTicker(cfg.StoreInterval)
-			go func() {
-				for range writeTicker.C {
-					producer, err := stores.NewProducer(cfg.StoreFile)
-					if err != nil {
-						log.Error().Err(err).Msg("ошибка инициализации файла")
-						return
-					}
-
-					err = producer.Save(mem, cfg.StoreFile)
-					if err != nil {
-						log.Error().Timestamp().Err(err).Msg("ошибка сохранения метрик")
-					}
-				}
-			}()
-
-			defer func() {
-				log.Info().Msgf("останавливаем тикер записи метрик в файл")
-				writeTicker.Stop()
-			}()
-		}
-	}
+	//if len(cfg.StoreFile) != 0 && cfg.StoreInterval != 0 {
+	//	log.Info().Msgf("запуск записи метрик в файл с интервалом в %s секунд", cfg.StoreInterval)
+	//	writeTicker := time.NewTicker(cfg.StoreInterval)
+	//	go func() {
+	//		for range writeTicker.C {
+	//			producer, err := stores.NewProducer(cfg.StoreFile)
+	//			if err != nil {
+	//				log.Error().Err(err).Msg("ошибка инициализации файла")
+	//				return
+	//			}
+	//
+	//			err = producer.Save(mem, cfg.StoreFile)
+	//			if err != nil {
+	//				log.Error().Timestamp().Err(err).Msg("ошибка сохранения метрик")
+	//			}
+	//		}
+	//	}()
+	//	defer func() {
+	//		log.Info().Msgf("останавливаем тикер записи метрик в файл")
+	//		writeTicker.Stop()
+	//	}()
+	//}
 
 	srv := &http.Server{
 		Addr:              cfg.Address,
-		Handler:           r,
+		Handler:           router,
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 	log.Info().Timestamp().Msgf("сервер запускается на %s", cfg.Address)
@@ -100,19 +99,23 @@ func main() {
 	}()
 
 	<-sigs
+	shutdown(cfg, srv, mem)
+}
+
+func shutdown(cfg config.Server, srv *http.Server, mem metric.Repository) {
 	log.Info().Timestamp().Msg("получен сигнал остановки")
 
-	if len(cfg.StoreFile) != 0 {
-		producer, err := stores.NewProducer(cfg.StoreFile)
-		if err != nil {
-			log.Error().Timestamp().Err(err).Msg("ошибка инициализации файла")
-		} else {
-			err = producer.Save(mem, cfg.StoreFile)
-			if err != nil {
-				log.Error().Err(err).Msg("ошибка сохранения метрики в файл")
-			}
-		}
-	}
+	//if len(cfg.StoreFile) != 0 {
+	//	producer, err := stores.NewProducer(cfg.StoreFile)
+	//	if err != nil {
+	//		log.Error().Timestamp().Err(err).Msg("ошибка инициализации файла")
+	//	} else {
+	//		err = producer.Save(mem, cfg.StoreFile)
+	//		if err != nil {
+	//			log.Error().Err(err).Msg("ошибка сохранения метрики в файл")
+	//		}
+	//	}
+	//}
 
 	ctxShutDown, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer func() {
