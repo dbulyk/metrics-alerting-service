@@ -11,9 +11,7 @@ import (
 
 	"github.com/dbulyk/metrics-alerting-service/internal/handlers"
 
-	"github.com/dbulyk/metrics-alerting-service/internal/middlewares"
 	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
 	"github.com/rs/zerolog/log"
 )
 
@@ -30,18 +28,13 @@ func NewRouter(router *chi.Mux, metrics *Repository) (r handlers.Handler) {
 }
 
 func (h *handler) Register(router *chi.Mux) {
-	router.Use(middleware.Logger)
-	router.Use(middleware.RequestID)
-	router.Use(middleware.RealIP)
-	router.Use(middleware.Recoverer)
-	router.Use(middlewares.GzipMiddleware)
-
 	router.Route("/", func(r chi.Router) {
 		r.Get("/", h.GetAll)
 		r.Get("/value/{type}/{name}", h.GetWithText)
 		r.Post("/value/", h.GetWithJSON)
 		r.Post("/update/{type}/{name}/{value}", h.UpdateWithText)
 		r.Post("/update/", h.UpdateWithJSON)
+		r.Get("/ping", h.Ping)
 	})
 }
 
@@ -239,5 +232,22 @@ func (h *handler) GetWithText(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(w, *metric.Value)
 	}
 
+	w.WriteHeader(http.StatusOK)
+}
+
+func (h *handler) Ping(w http.ResponseWriter, r *http.Request) {
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			log.Error().Err(err).Msg("ошибка закрытия тела запроса")
+		}
+	}(r.Body)
+
+	err := h.repository.Ping()
+	if err != nil {
+		log.Error().Err(err).Msg("ошибка пинга")
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
 	w.WriteHeader(http.StatusOK)
 }

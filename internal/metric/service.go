@@ -1,9 +1,11 @@
 package metric
 
 import (
+	"context"
 	"crypto/hmac"
 	"errors"
 	"fmt"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"sync"
 	"time"
 
@@ -29,14 +31,16 @@ type repository struct {
 	metrics       []*Metric
 	storeInterval time.Duration
 	storeFile     string
+	db            *pgxpool.Pool
 }
 
-func NewRepository() Repository {
+func NewRepository(db *pgxpool.Pool) Repository {
 	return &repository{
 		metrics:       make([]*Metric, 0, 50),
 		Mutex:         sync.Mutex{},
 		storeFile:     config.GetStoreFile(),
 		storeInterval: config.GetStoreInterval(),
+		db:            db,
 	}
 }
 
@@ -93,17 +97,17 @@ func (ms *repository) SetMetric(metric Metric, restore bool) (*Metric, error) {
 
 	ms.metrics = append(ms.metrics, &metric)
 
-	//if len(ms.storeFile) != 0 && ms.storeInterval == 0 {
-	//	producer, err := stores.NewProducer(ms.storeFile)
-	//	if err != nil {
-	//		return nil, err
-	//	}
-	//	err = producer.Save(ms, ms.storeFile)
-	//	if err != nil {
-	//		log.Error().Err(err).Msg("ошибка сохранения метрики в файл")
-	//		return nil, err
-	//	}
-	//}
+	if len(ms.storeFile) != 0 && ms.storeInterval == 0 {
+		producer, err := NewProducer(ms.storeFile)
+		if err != nil {
+			return nil, err
+		}
+		err = producer.Save(ms, ms.storeFile)
+		if err != nil {
+			log.Error().Err(err).Msg("ошибка сохранения метрики в файл")
+			return nil, err
+		}
+	}
 
 	return &metric, nil
 }
@@ -118,4 +122,8 @@ func (ms *repository) GetMetric(id string, mType string) (*Metric, error) {
 	}
 	ms.Unlock()
 	return nil, ErrInvalidMetric
+}
+
+func (ms *repository) Ping() error {
+	return ms.db.Ping(context.Background())
 }

@@ -2,6 +2,10 @@ package main
 
 import (
 	"context"
+	"github.com/dbulyk/metrics-alerting-service/internal/middlewares"
+	"github.com/go-chi/chi/v5/middleware"
+
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/dbulyk/metrics-alerting-service/internal/metric"
 	"github.com/go-chi/chi/v5"
@@ -29,23 +33,24 @@ func main() {
 	cfg := config.GetServerCfg()
 	log.Info().Msg("конфигурация сервера получена")
 
-	//log.Info().Msgf("подключение к базе данных по адресу: %s", cfg.DatabaseDsn)
-	//db, err := pgxpool.New(context.Background(), cfg.DatabaseDsn)
-	//if err != nil {
-	//	log.Panic().Timestamp().Err(err).Msg("ошибка открытия соединения с базой данных")
-	//}
-	//defer db.Close()
-	//
-	//err = db.Ping(context.Background())
-	//if err != nil {
-	//	log.Panic().Timestamp().Err(err).Msg("ошибка подключения к базе данных")
-	//}
+	log.Info().Msgf("подключение к базе данных по адресу: %s", cfg.DatabaseDsn)
+	db, err := pgxpool.New(context.Background(), cfg.DatabaseDsn)
+	if err != nil {
+		log.Fatal().Timestamp().Err(err).Msg("ошибка открытия соединения с базой данных")
+	}
+	defer db.Close()
 
-	mem := metric.NewRepository()
+	mem := metric.NewRepository(db)
+
 	router := chi.NewRouter()
+	router.Use(middleware.Logger)
+	router.Use(middleware.RequestID)
+	router.Use(middleware.RealIP)
+	router.Use(middleware.Recoverer)
+	router.Use(middlewares.GzipMiddleware)
 	metricHandler := metric.NewRouter(router, &mem)
 	metricHandler.Register(router)
-	log.Info().Timestamp().Msg("роутер инициализирован")
+	log.Info().Msg("роутер инициализирован")
 
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
@@ -69,7 +74,7 @@ func main() {
 			for range writeTicker.C {
 				producer, err := metric.NewProducer(cfg.StoreFile)
 				if err != nil {
-					log.Error().Err(err).Msg("ошибка инициализации файла")
+					log.Error().Timestamp().Err(err).Msg("ошибка инициализации файла")
 					return
 				}
 
@@ -90,7 +95,7 @@ func main() {
 		Handler:           router,
 		ReadHeaderTimeout: 5 * time.Second,
 	}
-	log.Info().Timestamp().Msgf("сервер запускается на %s", cfg.Address)
+	log.Info().Msgf("сервер запускается на %s", cfg.Address)
 
 	go func() {
 		if err := srv.ListenAndServe(); err != nil {
@@ -103,7 +108,7 @@ func main() {
 }
 
 func shutdown(cfg config.Server, srv *http.Server, mem metric.Repository) {
-	log.Info().Timestamp().Msg("получен сигнал остановки")
+	log.Info().Msg("получен сигнал остановки")
 
 	if len(cfg.StoreFile) != 0 {
 		producer, err := metric.NewProducer(cfg.StoreFile)
@@ -112,7 +117,7 @@ func shutdown(cfg config.Server, srv *http.Server, mem metric.Repository) {
 		} else {
 			err = producer.Save(mem, cfg.StoreFile)
 			if err != nil {
-				log.Error().Err(err).Msg("ошибка сохранения метрики в файл")
+				log.Error().Timestamp().Err(err).Msg("ошибка сохранения метрики в файл")
 			}
 		}
 	}
@@ -126,5 +131,5 @@ func shutdown(cfg config.Server, srv *http.Server, mem metric.Repository) {
 		log.Error().Timestamp().Err(err).Msg("ошибка остановки сервера")
 	}
 
-	log.Info().Timestamp().Msg("сервер остановлен")
+	log.Info().Msg("сервер остановлен")
 }
