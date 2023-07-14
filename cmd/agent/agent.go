@@ -59,8 +59,8 @@ func collectAndSendMetrics(done chan bool) {
 		case <-reportTicker.C:
 			log.Print("Отправка метрик")
 			isError := false
-			for _, m := range metrics {
-				request, err := createRequestToMetricsUpdate(&m, cfg.Address, cfg.Key)
+			for i := range metrics {
+				request, err := createRequestToMetricsUpdate(&metrics[i], cfg.Address, cfg.Key)
 				if err != nil {
 					isError = true
 					log.Printf("возникла ошибка при создании запроса. Ошибка: %s", err.Error())
@@ -101,7 +101,6 @@ func createRequestToMetricsUpdate(metric *metric.Metric, address string, key str
 		case "gauge":
 			metric.Hash = utils.Hash(fmt.Sprintf("%s:%s:%f", metric.ID, metric.MType, *metric.Value), key)
 		case "counter":
-			println(*metric.Delta)
 			metric.Hash = utils.Hash(fmt.Sprintf("%s:%s:%d", metric.ID, metric.MType, *metric.Delta), key)
 		}
 	}

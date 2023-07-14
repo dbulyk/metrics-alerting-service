@@ -30,7 +30,7 @@ func GetServerCfg() Server {
 
 	err := env.Parse(&server)
 	if err != nil {
-		log.Fatal().Err(err).Msg("ошибка чтения конфига")
+		log.Panic().Err(err).Msg("ошибка чтения конфига")
 	}
 	return server
 }

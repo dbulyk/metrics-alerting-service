@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+
 	"github.com/dbulyk/metrics-alerting-service/internal/middlewares"
 	"github.com/go-chi/chi/v5/middleware"
 
@@ -24,7 +25,6 @@ import (
 
 func main() {
 	defer os.Exit(0)
-
 	output := zerolog.ConsoleWriter{Out: os.Stderr}
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 	log.Logger = zerolog.New(output).With().Timestamp().Logger()
@@ -36,7 +36,7 @@ func main() {
 	log.Info().Msgf("подключение к базе данных по адресу: %s", cfg.DatabaseDsn)
 	db, err := pgxpool.New(context.Background(), cfg.DatabaseDsn)
 	if err != nil {
-		log.Fatal().Timestamp().Err(err).Msg("ошибка открытия соединения с базой данных")
+		log.Panic().Timestamp().Err(err).Msg("ошибка открытия соединения с базой данных")
 	}
 	defer db.Close()
 

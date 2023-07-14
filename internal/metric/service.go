@@ -5,9 +5,10 @@ import (
 	"crypto/hmac"
 	"errors"
 	"fmt"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"sync"
 	"time"
+
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/dbulyk/metrics-alerting-service/internal/utils"
 
