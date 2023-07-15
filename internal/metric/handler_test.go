@@ -335,6 +335,10 @@ func TestHandler_GetAll(t *testing.T) {
 }
 
 func TestHandler_Ping(t *testing.T) {
+	if config.GetServerCfg().DatabaseDsn == "" {
+		return
+	}
+
 	mem := NewRepository(db)
 
 	r := chi.NewRouter()
