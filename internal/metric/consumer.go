@@ -56,7 +56,7 @@ func (c *Consumer) Restore(mem Repository) error {
 	}
 
 	for _, metric := range metrics {
-		_, err = mem.SetMetric(metric, false)
+		_, err = mem.SetMetric(metric, true)
 		if err != nil {
 			log.Error().Err(err).Msgf("ошибка восстановления метрики %s", metric.ID)
 		}
