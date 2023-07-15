@@ -32,6 +32,7 @@ func (h *handler) Register(router *chi.Mux) {
 		r.Get("/", h.GetAll)
 		r.Get("/value/{type}/{name}", h.GetWithText)
 		r.Post("/value/", h.GetWithJSON)
+		r.Post("/update/{type}/{name}/{value}", h.UpdateWithText)
 		r.Post("/update/{type}/{name}/{value}/{hash}", h.UpdateWithText)
 		r.Post("/update/", h.UpdateWithJSON)
 		r.Get("/ping", h.Ping)
