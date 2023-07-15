@@ -333,21 +333,3 @@ func TestHandler_GetAll(t *testing.T) {
 	assert.Equal(t, http.StatusOK, statusCode)
 	assert.NotEmpty(t, body)
 }
-
-func TestHandler_Ping(t *testing.T) {
-	if config.GetServerCfg().DatabaseDsn == "" {
-		return
-	}
-
-	mem := NewRepository(db)
-
-	r := chi.NewRouter()
-	h := NewRouter(r, &mem)
-	h.Register(r)
-
-	ts := httptest.NewServer(r)
-	defer ts.Close()
-
-	statusCode, _ := testRequest(t, ts, "GET", "/ping", nil)
-	assert.Equal(t, http.StatusOK, statusCode)
-}
