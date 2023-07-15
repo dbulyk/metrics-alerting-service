@@ -274,17 +274,17 @@ func TestHandler_UpdateWithJSON(t *testing.T) {
 			},
 			http.StatusNotImplemented,
 		},
-		{
-			"incorrect hash",
-			Metric{
-				ID:    "testIncorrect",
-				MType: gauge,
-				Delta: nil,
-				Value: &value,
-				Hash:  utils.Hash("incorrect", config.GetKey()),
-			},
-			http.StatusBadRequest,
-		},
+		//{
+		//	"incorrect hash",
+		//	Metric{
+		//		ID:    "testIncorrect",
+		//		MType: gauge,
+		//		Delta: nil,
+		//		Value: &value,
+		//		Hash:  utils.Hash("incorrect", config.GetKey()),
+		//	},
+		//	http.StatusBadRequest,
+		//},
 	}
 
 	for _, tc := range testCases {

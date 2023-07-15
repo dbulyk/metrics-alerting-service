@@ -19,7 +19,7 @@ func NewAgentCfg() (*Agent, error) {
 	flag.StringVar(&agent.Address, "a", "localhost:8080", "адрес сервера")
 	flag.DurationVar(&agent.ReportInterval, "r", 10*time.Second, "интервал отправки метрик на сервер")
 	flag.DurationVar(&agent.PollInterval, "p", 2*time.Second, "интервал опроса метрик")
-	flag.StringVar(&agent.Key, "k", "test", "ключ подписи")
+	flag.StringVar(&agent.Key, "k", "", "ключ подписи")
 	flag.Parse()
 
 	err := env.Parse(&agent)
