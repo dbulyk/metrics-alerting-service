@@ -33,14 +33,21 @@ func main() {
 	cfg := config.GetServerCfg()
 	log.Info().Msg("конфигурация сервера получена")
 
-	log.Info().Msgf("подключение к базе данных по адресу: %s", cfg.DatabaseDsn)
-	db, err := pgxpool.New(context.Background(), cfg.DatabaseDsn)
-	if err != nil {
-		log.Panic().Timestamp().Err(err).Msg("ошибка открытия соединения с базой данных")
-	}
-	defer db.Close()
+	var (
+		metrics metric.Repository
+	)
+	if len(cfg.DatabaseDsn) > 0 {
+		log.Info().Msgf("подключение к базе данных по адресу: %s", cfg.DatabaseDsn)
+		db, err := pgxpool.New(context.Background(), cfg.DatabaseDsn)
+		if err != nil {
+			log.Panic().Timestamp().Err(err).Msg("ошибка открытия соединения с базой данных")
+		}
+		defer db.Close()
 
-	mem := metric.NewRepository(db)
+		metrics = metric.NewDBRepository(db)
+	} else {
+		metrics = metric.NewFileRepository()
+	}
 
 	router := chi.NewRouter()
 	router.Use(middleware.Logger)
@@ -48,46 +55,50 @@ func main() {
 	router.Use(middleware.RealIP)
 	router.Use(middleware.Recoverer)
 	router.Use(middlewares.GzipMiddleware)
-	metricHandler := metric.NewRouter(router, &mem)
+	metricHandler := metric.NewRouter(router, &metrics)
 	metricHandler.Register(router)
 	log.Info().Msg("роутер инициализирован")
 
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 
-	if cfg.Restore {
-		consumer, err := metric.NewConsumer(cfg.StoreFile)
-		if err != nil {
-			log.Error().Timestamp().Err(err).Msg("ошибка инициализации файла")
-		} else {
-			err = consumer.Restore(mem)
+	if len(cfg.DatabaseDsn) == 0 {
+		if cfg.Restore && len(cfg.StoreFile) > 0 {
+			consumer, err := metric.NewConsumer(cfg.StoreFile)
 			if err != nil {
-				log.Error().Timestamp().Err(err).Msg("ошибка восстановления метрик")
+				log.Error().Timestamp().Err(err).Msg("ошибка инициализации файла")
+			} else {
+				err = consumer.Restore(metrics)
+				if err != nil {
+					log.Error().Timestamp().Err(err).Msg("ошибка восстановления метрик")
+				}
 			}
 		}
-	}
 
-	if len(cfg.StoreFile) != 0 && cfg.StoreInterval != 0 {
-		log.Info().Msgf("запуск записи метрик в файл с интервалом в %s секунд", cfg.StoreInterval)
-		writeTicker := time.NewTicker(cfg.StoreInterval)
-		go func() {
-			for range writeTicker.C {
-				producer, err := metric.NewProducer(cfg.StoreFile)
-				if err != nil {
-					log.Error().Timestamp().Err(err).Msg("ошибка инициализации файла")
-					return
-				}
+		if len(cfg.StoreFile) > 0 && cfg.StoreInterval > 0 {
+			log.Info().Msgf("запуск записи метрик в файл с интервалом в %s секунд", cfg.StoreInterval)
+			writeTicker := time.NewTicker(cfg.StoreInterval)
+			go func() {
+				for range writeTicker.C {
+					producer, err := metric.NewProducer(cfg.StoreFile)
+					if err != nil {
+						log.Error().Timestamp().Err(err).Msg("ошибка инициализации файла")
+						return
+					}
 
-				err = producer.Save(mem, cfg.StoreFile)
-				if err != nil {
-					log.Error().Timestamp().Err(err).Msg("ошибка сохранения метрик")
+					err = producer.Save(metrics, cfg.StoreFile)
+					if err != nil {
+						log.Error().Timestamp().Err(err).Msg("ошибка сохранения метрик")
+					}
 				}
-			}
-		}()
-		defer func() {
-			log.Info().Msgf("останавливаем тикер записи метрик в файл")
-			writeTicker.Stop()
-		}()
+			}()
+			defer func() {
+				log.Info().Msgf("останавливаем тикер записи метрик в файл")
+				writeTicker.Stop()
+			}()
+		}
+	} else if cfg.Restore {
+
 	}
 
 	srv := &http.Server{
@@ -104,13 +115,15 @@ func main() {
 	}()
 
 	<-sigs
-	shutdown(cfg, srv, mem)
+	shutdown(cfg, srv, metrics)
 }
 
 func shutdown(cfg config.Server, srv *http.Server, mem metric.Repository) {
 	log.Info().Msg("получен сигнал остановки")
 
-	if len(cfg.StoreFile) != 0 {
+	if len(cfg.DatabaseDsn) > 0 {
+
+	} else if len(cfg.StoreFile) > 0 {
 		producer, err := metric.NewProducer(cfg.StoreFile)
 		if err != nil {
 			log.Error().Timestamp().Err(err).Msg("ошибка инициализации файла")

@@ -54,7 +54,7 @@ func (h *handler) UpdateWithJSON(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	metric, err := h.repository.SetMetric(m, false)
+	metric, err := h.repository.Set(m)
 	if err != nil {
 		if errors.Is(err, ErrInvalidHash) {
 			w.WriteHeader(http.StatusBadRequest)
@@ -126,7 +126,7 @@ func (h *handler) UpdateWithText(w http.ResponseWriter, r *http.Request) {
 		Delta: mValueInt,
 		Hash:  mHash,
 	}
-	_, err := h.repository.SetMetric(metric, false)
+	_, err := h.repository.Set(metric)
 	if err != nil {
 		log.Error().Err(err).Msgf("ошибка обновления метрики: %s", mName)
 		w.WriteHeader(http.StatusNotImplemented)
@@ -147,7 +147,7 @@ func (h *handler) GetAll(w http.ResponseWriter, r *http.Request) {
 			log.Error().Err(err).Msg("ошибка закрытия тела запроса")
 		}
 	}(r.Body)
-	metrics, _ := h.repository.ListMetrics()
+	metrics, _ := h.repository.GetAll()
 
 	tmpl, err := template.ParseFiles("templates/index.gohtml")
 	if err != nil {
@@ -179,7 +179,7 @@ func (h *handler) GetWithJSON(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	metric, err := h.repository.GetMetric(m.ID, m.MType)
+	metric, err := h.repository.Get(m.ID, m.MType)
 	if err != nil {
 		log.Error().Err(err).Msgf("ошибка получения метрики: %s", m.ID)
 		w.WriteHeader(http.StatusNotFound)
@@ -214,7 +214,7 @@ func (h *handler) GetWithText(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "text/plain")
-	metric, err := h.repository.GetMetric(mName, mType)
+	metric, err := h.repository.Get(mName, mType)
 	if err != nil {
 		log.Error().Err(err).Msgf("ошибка получения метрики: %s", mName)
 		w.WriteHeader(http.StatusNotFound)
@@ -239,11 +239,11 @@ func (h *handler) Ping(w http.ResponseWriter, r *http.Request) {
 		}
 	}(r.Body)
 
-	err := h.repository.Ping()
-	if err != nil {
-		log.Error().Err(err).Msg("ошибка пинга")
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
+	//err := h.repository.Ping()
+	//if err != nil {
+	//	log.Error().Err(err).Msg("ошибка пинга")
+	//	w.WriteHeader(http.StatusInternalServerError)
+	//	return
+	//}
 	w.WriteHeader(http.StatusOK)
 }

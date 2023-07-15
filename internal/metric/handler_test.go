@@ -56,7 +56,7 @@ func testRequest(t *testing.T, ts *httptest.Server, method, path string, jsonDat
 }
 
 func TestHandler_GetWithText(t *testing.T) {
-	mem := NewRepository(db)
+	mem := NewFileRepository()
 
 	r := chi.NewRouter()
 	h := NewRouter(r, &mem)
@@ -112,7 +112,7 @@ func TestHandler_GetWithText(t *testing.T) {
 }
 
 func TestHandler_GetWithJSON(t *testing.T) {
-	mem := NewRepository(db)
+	mem := NewFileRepository()
 
 	r := chi.NewRouter()
 	h := NewRouter(r, &mem)
@@ -169,7 +169,7 @@ func TestHandler_GetWithJSON(t *testing.T) {
 }
 
 func TestHandler_UpdateWithText(t *testing.T) {
-	mem := NewRepository(db)
+	mem := NewFileRepository()
 
 	r := chi.NewRouter()
 	h := NewRouter(r, &mem)
@@ -210,7 +210,7 @@ func TestHandler_UpdateWithText(t *testing.T) {
 			assert.Equal(t, tc.statusCode, resp.StatusCode)
 
 			if tc.statusCode == http.StatusOK {
-				metric, err := mem.GetMetric(tc.mName, tc.mType)
+				metric, err := mem.Get(tc.mName, tc.mType)
 				require.NoError(t, err)
 
 				if tc.mType == "gauge" {
@@ -228,7 +228,7 @@ func TestHandler_UpdateWithText(t *testing.T) {
 }
 
 func TestHandler_UpdateWithJSON(t *testing.T) {
-	mem := NewRepository(db)
+	mem := NewFileRepository()
 
 	r := chi.NewRouter()
 	h := NewRouter(r, &mem)
@@ -316,7 +316,7 @@ func TestHandler_UpdateWithJSON(t *testing.T) {
 }
 
 func TestHandler_GetAll(t *testing.T) {
-	mem := NewRepository(db)
+	mem := NewFileRepository()
 
 	r := chi.NewRouter()
 	h := NewRouter(r, &mem)

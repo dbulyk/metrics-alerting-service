@@ -1,14 +1,11 @@
 package metric
 
 import (
-	"context"
 	"crypto/hmac"
 	"errors"
 	"fmt"
 	"sync"
 	"time"
-
-	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/dbulyk/metrics-alerting-service/internal/utils"
 
@@ -32,20 +29,18 @@ type repository struct {
 	metrics       []*Metric
 	storeInterval time.Duration
 	storeFile     string
-	db            *pgxpool.Pool
 }
 
-func NewRepository(db *pgxpool.Pool) Repository {
+func NewFileRepository() Repository {
 	return &repository{
 		metrics:       make([]*Metric, 0, 50),
 		Mutex:         sync.Mutex{},
 		storeFile:     config.GetStoreFile(),
 		storeInterval: config.GetStoreInterval(),
-		db:            db,
 	}
 }
 
-func (ms *repository) ListMetrics() ([]*Metric, error) {
+func (ms *repository) GetAll() ([]*Metric, error) {
 	ms.Lock()
 	var listMetrics = make([]*Metric, len(ms.metrics))
 	copy(listMetrics, ms.metrics)
@@ -53,7 +48,7 @@ func (ms *repository) ListMetrics() ([]*Metric, error) {
 	return listMetrics, nil
 }
 
-func (ms *repository) SetMetric(metric Metric, restore bool) (*Metric, error) {
+func (ms *repository) Set(metric Metric) (*Metric, error) {
 	ms.Lock()
 	defer ms.Unlock()
 
@@ -64,17 +59,14 @@ func (ms *repository) SetMetric(metric Metric, restore bool) (*Metric, error) {
 
 	var mHash, s string
 	key := config.GetKey()
-	if len(key) != 0 && !restore {
+	if len(key) > 0 {
 		switch metric.MType {
 		case gauge:
-			log.Info().Msgf("получено значение метрики %s:%s:%f", metric.ID, metric.MType, *metric.Value)
 			s = fmt.Sprintf("%s:%s:%f", metric.ID, metric.MType, *metric.Value)
 		case counter:
-			log.Info().Msgf("получено значение метрики %s:%s:%d", metric.ID, metric.MType, *metric.Delta)
 			s = fmt.Sprintf("%s:%s:%d", metric.ID, metric.MType, *metric.Delta)
 		}
 
-		log.Debug().Msgf("входящий хэш %s", s)
 		mHash = utils.Hash(s, key)
 		if !hmac.Equal([]byte(mHash), []byte(metric.Hash)) {
 			log.Error().Msgf("входящий хэш не совпадает с вычисленным. Метрика %s не будет добавлена", metric.ID)
@@ -87,8 +79,10 @@ func (ms *repository) SetMetric(metric Metric, restore bool) (*Metric, error) {
 			if m.MType == counter {
 				d := *m.Delta + *metric.Delta
 				m.Delta = &d
-				s = fmt.Sprintf("%s:%s:%d", m.ID, m.MType, *m.Delta) //TODO: подумать над тем, чтобы не дублировать код
-				mHash = utils.Hash(s, key)
+				if len(key) > 0 {
+					s = fmt.Sprintf("%s:%s:%d", m.ID, m.MType, *m.Delta)
+					mHash = utils.Hash(s, key)
+				}
 			} else {
 				m.Value = metric.Value
 			}
@@ -114,7 +108,7 @@ func (ms *repository) SetMetric(metric Metric, restore bool) (*Metric, error) {
 	return &metric, nil
 }
 
-func (ms *repository) GetMetric(id string, mType string) (*Metric, error) {
+func (ms *repository) Get(id string, mType string) (*Metric, error) {
 	ms.Lock()
 	for _, m := range ms.metrics {
 		if m.ID == id && m.MType == mType {
@@ -124,8 +118,4 @@ func (ms *repository) GetMetric(id string, mType string) (*Metric, error) {
 	}
 	ms.Unlock()
 	return nil, ErrInvalidMetric
-}
-
-func (ms *repository) Ping() error {
-	return ms.db.Ping(context.Background())
 }

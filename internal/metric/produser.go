@@ -43,7 +43,7 @@ func (p *Producer) Close() error {
 }
 
 func (p *Producer) Save(mem Repository, filename string) error {
-	listMetrics, _ := mem.ListMetrics()
+	listMetrics, _ := mem.GetAll()
 
 	defer func(p *Producer) {
 		err := p.Close()

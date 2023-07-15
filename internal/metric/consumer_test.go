@@ -35,28 +35,28 @@ func TestConsumer_Read(t *testing.T) {
 	tmpfile, err := os.CreateTemp(tmpDir, "*.json")
 	require.NoError(t, err)
 
-	mem := NewRepository(db)
+	mem := NewFileRepository()
 	v := 123.15
-	_, err = mem.SetMetric(Metric{
+	_, err = mem.Set(Metric{
 		ID:    "testGauge",
 		MType: "gauge",
 		Delta: nil,
 		Value: &v,
 		Hash:  utils.Hash("testGauge:gauge:123.150000", config.GetKey()),
-	}, false)
+	})
 	assert.NoError(t, err)
 
 	i := int64(123)
-	_, err = mem.SetMetric(Metric{
+	_, err = mem.Set(Metric{
 		ID:    "testCounter",
 		MType: "counter",
 		Delta: &i,
 		Value: nil,
 		Hash:  utils.Hash("testCounter:counter:123", config.GetKey()),
-	}, false)
+	})
 	assert.NoError(t, err)
 
-	testMetrics, _ := mem.ListMetrics()
+	testMetrics, _ := mem.GetAll()
 
 	for _, metric := range testMetrics {
 		data, err := json.Marshal(metric)
@@ -71,16 +71,16 @@ func TestConsumer_Read(t *testing.T) {
 	require.NoError(t, err)
 	defer consumer.Close()
 
-	mem1 := NewRepository(db)
+	mem1 := NewFileRepository()
 	metrics, err := consumer.Read()
 	require.NoError(t, err)
 
 	for _, metric := range metrics {
-		_, err = mem1.SetMetric(metric, false)
+		_, err = mem1.Set(metric)
 		require.NoError(t, err)
 	}
 
-	metrics1, _ := mem1.ListMetrics()
+	metrics1, _ := mem1.GetAll()
 	assert.Equal(t, testMetrics, metrics1)
 }
 
@@ -106,30 +106,30 @@ func TestRestoreMetricsFromFile(t *testing.T) {
 	tmpfile, err := os.CreateTemp(tmpDir, "*.json")
 	require.NoError(t, err)
 
-	mem := NewRepository(db)
+	mem := NewFileRepository()
 
 	consumer, err := NewConsumer(tmpfile.Name())
 	require.NoError(t, err)
 	defer consumer.Close()
 
 	v := 123.15
-	_, err = mem.SetMetric(Metric{
+	_, err = mem.Set(Metric{
 		ID:    "testGauge",
 		MType: "gauge",
 		Delta: nil,
 		Value: &v,
 		Hash:  utils.Hash("testGauge:gauge:123.150000", config.GetKey()),
-	}, false)
+	})
 	assert.NoError(t, err)
 
 	i := int64(123)
-	_, err = mem.SetMetric(Metric{
+	_, err = mem.Set(Metric{
 		ID:    "testCounter",
 		MType: "counter",
 		Delta: &i,
 		Value: nil,
 		Hash:  utils.Hash("testCounter:counter:123", config.GetKey()),
-	}, false)
+	})
 	assert.NoError(t, err)
 
 	producer, err := NewProducer(tmpfile.Name())
@@ -142,9 +142,9 @@ func TestRestoreMetricsFromFile(t *testing.T) {
 	err = consumer.Restore(mem)
 	assert.NoError(t, err)
 
-	metrics, _ := mem.ListMetrics()
+	metrics, _ := mem.GetAll()
 	for _, expectedMetric := range metrics {
-		metric, err := mem.GetMetric(expectedMetric.ID, expectedMetric.MType)
+		metric, err := mem.Get(expectedMetric.ID, expectedMetric.MType)
 		assert.NoError(t, err)
 		assert.Equal(t, expectedMetric, metric)
 	}

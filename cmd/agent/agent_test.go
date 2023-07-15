@@ -1,11 +1,12 @@
 package main
 
 import (
-	"github.com/dbulyk/metrics-alerting-service/internal/metric"
 	"net/http"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/dbulyk/metrics-alerting-service/internal/metric"
 
 	"github.com/jarcoal/httpmock"
 	"github.com/stretchr/testify/assert"

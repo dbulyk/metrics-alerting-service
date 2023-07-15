@@ -32,28 +32,28 @@ func TestProducer_Write(t *testing.T) {
 	tmpfile, err := os.CreateTemp(tmpDir, "*.json")
 	require.NoError(t, err)
 
-	mem := NewRepository(db)
+	mem := NewFileRepository()
 	v := 1.05
-	_, err = mem.SetMetric(Metric{
+	_, err = mem.Set(Metric{
 		ID:    "testGauge",
 		MType: "gauge",
 		Delta: nil,
 		Value: &v,
 		Hash:  "",
-	}, true)
+	})
 	assert.NoError(t, err)
 
 	i := int64(2)
-	_, err = mem.SetMetric(Metric{
+	_, err = mem.Set(Metric{
 		ID:    "testCounter",
 		MType: "counter",
 		Delta: &i,
 		Value: nil,
 		Hash:  "",
-	}, true)
+	})
 	assert.NoError(t, err)
 
-	metrics, _ := mem.ListMetrics()
+	metrics, _ := mem.GetAll()
 	assert.Len(t, metrics, 2)
 
 	producer, err := NewProducer(tmpfile.Name())
@@ -90,26 +90,26 @@ func TestSaveMetricsToFile(t *testing.T) {
 	require.NoError(t, err)
 	defer producer.file.Close()
 
-	mem := NewRepository(db)
+	mem := NewFileRepository()
 
 	v := 1.05
-	_, err = mem.SetMetric(Metric{
+	_, err = mem.Set(Metric{
 		ID:    "testGauge",
 		MType: "gauge",
 		Delta: nil,
 		Value: &v,
 		Hash:  "",
-	}, true)
+	})
 	assert.NoError(t, err)
 
 	i := int64(2)
-	_, err = mem.SetMetric(Metric{
+	_, err = mem.Set(Metric{
 		ID:    "testCounter",
 		MType: "counter",
 		Delta: &i,
 		Value: nil,
 		Hash:  "",
-	}, true)
+	})
 	assert.NoError(t, err)
 
 	tmpfile, err = os.CreateTemp("", "testfile.json")
