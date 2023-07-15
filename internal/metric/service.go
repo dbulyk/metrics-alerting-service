@@ -74,6 +74,7 @@ func (ms *repository) SetMetric(metric Metric, restore bool) (*Metric, error) {
 			s = fmt.Sprintf("%s:%s:%d", metric.ID, metric.MType, *metric.Delta)
 		}
 
+		log.Debug().Msgf("входящий хэш %s", s)
 		mHash = utils.Hash(s, key)
 		if !hmac.Equal([]byte(mHash), []byte(metric.Hash)) {
 			log.Error().Msgf("входящий хэш не совпадает с вычисленным. Метрика %s не будет добавлена", metric.ID)

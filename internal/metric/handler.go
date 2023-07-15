@@ -32,7 +32,7 @@ func (h *handler) Register(router *chi.Mux) {
 		r.Get("/", h.GetAll)
 		r.Get("/value/{type}/{name}", h.GetWithText)
 		r.Post("/value/", h.GetWithJSON)
-		r.Post("/update/{type}/{name}/{value}", h.UpdateWithText)
+		r.Post("/update/{type}/{name}/{value}/{hash}", h.UpdateWithText)
 		r.Post("/update/", h.UpdateWithJSON)
 		r.Get("/ping", h.Ping)
 	})
@@ -116,11 +116,6 @@ func (h *handler) UpdateWithText(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		mValueInt = &value
-	default:
-		log.Error().Msgf("пришел несуществующий тип метрики: %s", mType)
-		w.WriteHeader(http.StatusNotImplemented)
-		w.Write([]byte("такого типа метрики не существует"))
-		return
 	}
 
 	metric := Metric{
@@ -192,7 +187,7 @@ func (h *handler) GetWithJSON(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(metric); err != nil {
+	if err = json.NewEncoder(w).Encode(metric); err != nil {
 		log.Error().Err(err).Msg("ошибка кодирования JSON")
 		w.WriteHeader(http.StatusBadRequest)
 		return
