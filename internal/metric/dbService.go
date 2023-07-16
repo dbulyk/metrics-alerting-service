@@ -32,7 +32,7 @@ func NewDBRepository(db *pgxpool.Pool) Repository {
 }
 
 func (d *dbRepository) Set(metric Metric) (*Metric, error) {
-	log.Info().Msgf("добавление метрики %s", metric.ID)
+	log.Info().Msgf("добавление метрики %s. Тип: %s, значение: %v, дельта: %v, хэш: %s", metric.ID, metric.MType, metric.Value, metric.Delta, metric.Hash)
 	var mHash, key, s string
 	key = config.GetKey()
 	if len(key) > 0 {
@@ -79,6 +79,7 @@ func (d *dbRepository) Set(metric Metric) (*Metric, error) {
 }
 
 func (d *dbRepository) Get(mName string, mType string) (*Metric, error) {
+	log.Info().Msgf("получение метрики %s. Тип: %s", mName, mType)
 	rows := d.db.QueryRow(context.Background(),
 		"select id, mtype, delta, value, hash from metrics where id = $1 and mtype = $2", mName, mType)
 	var m Metric
@@ -87,6 +88,7 @@ func (d *dbRepository) Get(mName string, mType string) (*Metric, error) {
 		log.Info().Msgf("ошибка сканирования метрики из базы данных: %s", err)
 		return nil, ErrInvalidMetric
 	}
+	log.Info().Msgf("получена метрика %s. Тип: %s, значение: %v, дельта: %v, хэш: %s", m.ID, m.MType, m.Value, m.Delta, m.Hash)
 	return &m, nil
 }
 
