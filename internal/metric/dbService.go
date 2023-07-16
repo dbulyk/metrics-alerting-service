@@ -78,9 +78,9 @@ func (d *dbRepository) Set(metric Metric) (*Metric, error) {
 
 func (d *dbRepository) Get(mName string, mType string) (*Metric, error) {
 	rows := d.db.QueryRow(context.Background(),
-		"select id, mtype, delta, value from metrics where id = $1 and mtype = $2", mName, mType)
+		"select id, mtype, delta, value, hash from metrics where id = $1 and mtype = $2", mName, mType)
 	var m Metric
-	err := rows.Scan(&m.ID, &m.MType, &m.Delta, &m.Value)
+	err := rows.Scan(&m.ID, &m.MType, &m.Delta, &m.Value, &m.Hash)
 	if err != nil {
 		log.Info().Msgf("ошибка сканирования метрики из базы данных: %s", err)
 		return nil, ErrInvalidMetric
