@@ -63,42 +63,13 @@ func main() {
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 
 	if len(cfg.DatabaseDsn) == 0 {
-		if cfg.Restore && len(cfg.StoreFile) > 0 {
-			consumer, err := metric.NewConsumer(cfg.StoreFile)
-			if err != nil {
-				log.Error().Timestamp().Err(err).Msg("ошибка инициализации файла")
-			} else {
-				err = consumer.Restore(metrics)
-				if err != nil {
-					log.Error().Timestamp().Err(err).Msg("ошибка восстановления метрик")
-				}
-			}
-		}
-
-		if len(cfg.StoreFile) > 0 && cfg.StoreInterval > 0 {
-			log.Info().Msgf("запуск записи метрик в файл с интервалом в %s секунд", cfg.StoreInterval)
-			writeTicker := time.NewTicker(cfg.StoreInterval)
-			go func() {
-				for range writeTicker.C {
-					producer, err := metric.NewProducer(cfg.StoreFile)
-					if err != nil {
-						log.Error().Timestamp().Err(err).Msg("ошибка инициализации файла")
-						return
-					}
-
-					err = producer.Save(metrics, cfg.StoreFile)
-					if err != nil {
-						log.Error().Timestamp().Err(err).Msg("ошибка сохранения метрик")
-					}
-				}
-			}()
+		writeTicker := startWriteToFile(cfg, metrics)
+		if writeTicker != nil {
 			defer func() {
 				log.Info().Msgf("останавливаем тикер записи метрик в файл")
 				writeTicker.Stop()
 			}()
 		}
-	} else if cfg.Restore {
-
 	}
 
 	srv := &http.Server{
@@ -121,9 +92,7 @@ func main() {
 func shutdown(cfg config.Server, srv *http.Server, mem metric.Repository) {
 	log.Info().Msg("получен сигнал остановки")
 
-	if len(cfg.DatabaseDsn) > 0 {
-
-	} else if len(cfg.StoreFile) > 0 {
+	if len(cfg.StoreFile) > 0 && len(cfg.DatabaseDsn) == 0 {
 		producer, err := metric.NewProducer(cfg.StoreFile)
 		if err != nil {
 			log.Error().Timestamp().Err(err).Msg("ошибка инициализации файла")
@@ -145,4 +114,39 @@ func shutdown(cfg config.Server, srv *http.Server, mem metric.Repository) {
 	}
 
 	log.Info().Msg("сервер остановлен")
+}
+
+func startWriteToFile(cfg config.Server, metrics metric.Repository) *time.Ticker {
+	if cfg.Restore && len(cfg.StoreFile) > 0 {
+		consumer, err := metric.NewConsumer(cfg.StoreFile)
+		if err != nil {
+			log.Error().Timestamp().Err(err).Msg("ошибка инициализации файла")
+		} else {
+			err = consumer.Restore(metrics)
+			if err != nil {
+				log.Error().Timestamp().Err(err).Msg("ошибка восстановления метрик")
+			}
+		}
+	}
+
+	if len(cfg.StoreFile) > 0 && cfg.StoreInterval > 0 {
+		log.Info().Msgf("запуск записи метрик в файл с интервалом в %s секунд", cfg.StoreInterval)
+		writeTicker := time.NewTicker(cfg.StoreInterval)
+		go func() {
+			for range writeTicker.C {
+				producer, err := metric.NewProducer(cfg.StoreFile)
+				if err != nil {
+					log.Error().Timestamp().Err(err).Msg("ошибка инициализации файла")
+					return
+				}
+
+				err = producer.Save(metrics, cfg.StoreFile)
+				if err != nil {
+					log.Error().Timestamp().Err(err).Msg("ошибка сохранения метрик")
+				}
+			}
+		}()
+		return writeTicker
+	}
+	return nil
 }

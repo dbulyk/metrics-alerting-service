@@ -25,7 +25,8 @@ func GetServerCfg() Server {
 	flag.DurationVar(&server.StoreInterval, "i", 20*time.Second, "интервал сохранения метрик в файл")
 	flag.StringVar(&server.StoreFile, "f", "tmp/devops-metrics-db.json", "файл для сохранения метрик")
 	flag.StringVar(&server.Key, "k", "", "ключ подписи")
-	flag.StringVar(&server.DatabaseDsn, "d", "postgres://postgres:123@localhost:5432/postgres", "строка подключения к базе данных")
+	flag.StringVar(&server.DatabaseDsn, "d", "", "строка подключения к базе данных")
+	// адрес бд -- postgres://postgres:123@localhost:5432/postgres
 	flag.Parse()
 
 	err := env.Parse(&server)
