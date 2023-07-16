@@ -2,6 +2,9 @@ package metric
 
 import (
 	"context"
+	"fmt"
+	"github.com/dbulyk/metrics-alerting-service/config"
+	"github.com/dbulyk/metrics-alerting-service/internal/utils"
 
 	"github.com/rs/zerolog/log"
 
@@ -24,8 +27,26 @@ func NewDBRepository(db *pgxpool.Pool) Repository {
 }
 
 func (d *dbRepository) Set(metric Metric) (*Metric, error) {
+	if metric.MType == counter {
+		res := d.db.QueryRow(context.Background(), "select delta from metrics where id = $1 and mtype = $2", metric.ID, metric.MType)
+		if res != nil {
+			var delta int64
+			err := res.Scan(&delta)
+			if err != nil {
+				log.Error().Msgf("ошибка сканирования метрики из базы данных: %s", err)
+				return nil, err
+			}
+			del := delta + *metric.Delta
+			metric.Delta = &del
+			if len(config.GetKey()) != 0 {
+				s := fmt.Sprintf("%s:%s:%d", metric.ID, metric.MType, *metric.Delta)
+				metric.Hash = utils.Hash(s, config.GetKey())
+			}
+		}
+	}
+
 	_, err := d.db.Exec(context.Background(),
-		"insert into metrics(id, mtype, delta, value, hash) values($1, $2, $3, $4, $5) on conflict (id) do update set delta = metrics.delta + EXCLUDED.delta, value = $4, hash = $5",
+		"insert into metrics(id, mtype, delta, value, hash) values($1, $2, $3, $4, $5) on conflict (id) do update set delta = $3, value = $4, hash = $5",
 		metric.ID, metric.MType, metric.Delta, metric.Value, metric.Hash)
 	if err != nil {
 		log.Info().Msgf("ошибка записи метрики в базу данных: %s", err)

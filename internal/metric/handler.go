@@ -20,9 +20,9 @@ type handler struct {
 	r          chi.Router
 }
 
-func NewRouter(router *chi.Mux, metrics *Repository) (r handlers.Handler) {
+func NewRouter(router *chi.Mux, rep *Repository) (r handlers.Handler) {
 	return &handler{
-		repository: *metrics,
+		repository: *rep,
 		r:          router,
 	}
 }
