@@ -5,6 +5,7 @@ import (
 	"crypto/hmac"
 	"errors"
 	"fmt"
+
 	"github.com/jackc/pgx/v5"
 
 	"github.com/dbulyk/metrics-alerting-service/config"
@@ -31,9 +32,10 @@ func NewDBRepository(db *pgxpool.Pool) Repository {
 }
 
 func (d *dbRepository) Set(metric Metric) (*Metric, error) {
+	log.Info().Msgf("добавление метрики %s", metric.ID)
 	var mHash, key, s string
 	key = config.GetKey()
-	if len(key) != 0 {
+	if len(key) > 0 {
 		switch metric.MType {
 		case gauge:
 			s = fmt.Sprintf("%s:%s:%f", metric.ID, metric.MType, *metric.Value)
@@ -56,7 +58,7 @@ func (d *dbRepository) Set(metric Metric) (*Metric, error) {
 			if err == nil {
 				del := delta + *metric.Delta
 				metric.Delta = &del
-				if len(key) != 0 {
+				if len(key) > 0 {
 					s = fmt.Sprintf("%s:%s:%d", metric.ID, metric.MType, *metric.Delta)
 					metric.Hash = utils.Hash(s, key)
 				}
