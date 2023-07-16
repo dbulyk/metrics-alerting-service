@@ -3,7 +3,9 @@ package metric
 import (
 	"context"
 	"crypto/hmac"
+	"errors"
 	"fmt"
+	"github.com/jackc/pgx/v5"
 
 	"github.com/dbulyk/metrics-alerting-service/config"
 	"github.com/dbulyk/metrics-alerting-service/internal/utils"
@@ -51,15 +53,15 @@ func (d *dbRepository) Set(metric Metric) (*Metric, error) {
 		if res != nil {
 			var delta int64
 			err := res.Scan(&delta)
-			if err != nil {
-				log.Error().Msgf("ошибка сканирования метрики из базы данных: %s", err)
+			if err == nil {
+				del := delta + *metric.Delta
+				metric.Delta = &del
+				if len(key) != 0 {
+					s = fmt.Sprintf("%s:%s:%d", metric.ID, metric.MType, *metric.Delta)
+					metric.Hash = utils.Hash(s, key)
+				}
+			} else if !errors.Is(err, pgx.ErrNoRows) {
 				return nil, err
-			}
-			del := delta + *metric.Delta
-			metric.Delta = &del
-			if len(config.GetKey()) != 0 {
-				s = fmt.Sprintf("%s:%s:%d", metric.ID, metric.MType, *metric.Delta)
-				metric.Hash = utils.Hash(s, config.GetKey())
 			}
 		}
 	}

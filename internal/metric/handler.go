@@ -239,11 +239,11 @@ func (h *handler) Ping(w http.ResponseWriter, r *http.Request) {
 		}
 	}(r.Body)
 
-	//err := h.repository.Ping()
-	//if err != nil {
-	//	log.Error().Err(err).Msg("ошибка пинга")
-	//	w.WriteHeader(http.StatusInternalServerError)
-	//	return
-	//}
+	err := h.repository.Ping()
+	if err != nil {
+		log.Error().Err(err).Msg("ошибка пинга")
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
 	w.WriteHeader(http.StatusOK)
 }
