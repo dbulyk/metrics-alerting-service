@@ -84,6 +84,13 @@ func (d *dbRepository) Get(mName string, mType string) (*Metric, error) {
 		"select id, mtype, delta, value, hash from metrics where id = $1 and mtype = $2", mName, mType)
 	var m Metric
 	err := rows.Scan(&m.ID, &m.MType, &m.Delta, &m.Value, &m.Hash)
+	if len(m.Hash) == 0 && len(config.GetKey()) == 0 {
+		if m.MType == gauge {
+			m.Hash = utils.Hash(fmt.Sprintf("%s:%s:%f", m.ID, m.MType, *m.Value), config.GetKey())
+		} else if m.MType == counter {
+			m.Hash = utils.Hash(fmt.Sprintf("%s:%s:%d", m.ID, m.MType, *m.Delta), config.GetKey())
+		}
+	}
 	if err != nil {
 		log.Info().Msgf("ошибка сканирования метрики из базы данных: %s", err)
 		return nil, ErrInvalidMetric
