@@ -22,7 +22,7 @@ var server Server
 func GetServerCfg() Server {
 	flag.StringVar(&server.Address, "a", "localhost:8080", "адрес сервера")
 	flag.BoolVar(&server.Restore, "r", true, "восстановить метрики из файла")
-	flag.DurationVar(&server.StoreInterval, "i", 20*time.Second, "интервал сохранения метрик в файл")
+	flag.DurationVar(&server.StoreInterval, "i", 300*time.Second, "интервал сохранения метрик в файл")
 	flag.StringVar(&server.StoreFile, "f", "tmp/devops-metrics-db.json", "файл для сохранения метрик")
 	flag.StringVar(&server.Key, "k", "", "ключ подписи")
 	flag.StringVar(&server.DatabaseDsn, "d", "", "строка подключения к базе данных")

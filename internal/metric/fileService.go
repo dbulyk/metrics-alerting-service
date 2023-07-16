@@ -119,3 +119,7 @@ func (ms *repository) Get(id string, mType string) (*Metric, error) {
 	ms.Unlock()
 	return nil, ErrInvalidMetric
 }
+
+func (ms *repository) Ping() error {
+	return nil
+}

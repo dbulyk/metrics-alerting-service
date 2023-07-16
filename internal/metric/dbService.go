@@ -2,7 +2,9 @@ package metric
 
 import (
 	"context"
+	"crypto/hmac"
 	"fmt"
+
 	"github.com/dbulyk/metrics-alerting-service/config"
 	"github.com/dbulyk/metrics-alerting-service/internal/utils"
 
@@ -27,6 +29,23 @@ func NewDBRepository(db *pgxpool.Pool) Repository {
 }
 
 func (d *dbRepository) Set(metric Metric) (*Metric, error) {
+	var mHash, key, s string
+	key = config.GetKey()
+	if len(key) != 0 {
+		switch metric.MType {
+		case gauge:
+			s = fmt.Sprintf("%s:%s:%f", metric.ID, metric.MType, *metric.Value)
+		case counter:
+			s = fmt.Sprintf("%s:%s:%d", metric.ID, metric.MType, *metric.Delta)
+		}
+
+		mHash = utils.Hash(s, key)
+		if !hmac.Equal([]byte(mHash), []byte(metric.Hash)) {
+			log.Error().Msgf("входящий хэш не совпадает с вычисленным. Метрика %s не будет добавлена", metric.ID)
+			return nil, ErrInvalidHash
+		}
+	}
+
 	if metric.MType == counter {
 		res := d.db.QueryRow(context.Background(), "select delta from metrics where id = $1 and mtype = $2", metric.ID, metric.MType)
 		if res != nil {
@@ -39,7 +58,7 @@ func (d *dbRepository) Set(metric Metric) (*Metric, error) {
 			del := delta + *metric.Delta
 			metric.Delta = &del
 			if len(config.GetKey()) != 0 {
-				s := fmt.Sprintf("%s:%s:%d", metric.ID, metric.MType, *metric.Delta)
+				s = fmt.Sprintf("%s:%s:%d", metric.ID, metric.MType, *metric.Delta)
 				metric.Hash = utils.Hash(s, config.GetKey())
 			}
 		}
@@ -62,7 +81,7 @@ func (d *dbRepository) Get(mName string, mType string) (*Metric, error) {
 	err := rows.Scan(&m.ID, &m.MType, &m.Delta, &m.Value)
 	if err != nil {
 		log.Info().Msgf("ошибка сканирования метрики из базы данных: %s", err)
-		return nil, err
+		return nil, ErrInvalidMetric
 	}
 	return &m, nil
 }
@@ -90,4 +109,8 @@ func (d *dbRepository) GetAll() ([]*Metric, error) {
 	}
 
 	return metrics, nil
+}
+
+func (d *dbRepository) Ping() error {
+	return d.db.Ping(context.Background())
 }
