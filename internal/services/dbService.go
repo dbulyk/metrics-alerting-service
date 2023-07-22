@@ -5,6 +5,7 @@ import (
 	"crypto/hmac"
 	"errors"
 	"fmt"
+
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/dbulyk/metrics-alerting-service/internal/models"
@@ -23,7 +24,7 @@ type dbRepository struct {
 }
 
 func NewDBRepository(db *pgxpool.Pool) storages.Repository {
-	_, err := db.Exec(context.Background(), "create table if not exists metrics (id text primary key, mtype text not null, delta bigint, value double precision, hash text)")
+	_, err := db.Query(context.Background(), "create table if not exists metrics (id text primary key, mtype text not null, delta bigint, value double precision, hash text)")
 	if err != nil {
 		log.Panic().Timestamp().Err(err).Msg("ошибка создания таблицы метрик")
 	}
@@ -89,14 +90,6 @@ func (dr *dbRepository) Get(mName string, mType string) (*models.Metric, error) 
 	if err != nil {
 		log.Info().Msgf("ошибка сканирования метрики из базы данных: %s", err)
 		return nil, ErrInvalidMetric
-	}
-
-	if len(m.Hash) == 0 && len(config.GetKey()) > 0 {
-		if m.MType == Gauge {
-			m.Hash = utils.Hash(fmt.Sprintf("%s:%s:%f", m.ID, m.MType, *m.Value), config.GetKey())
-		} else if m.MType == Counter {
-			m.Hash = utils.Hash(fmt.Sprintf("%s:%s:%dr", m.ID, m.MType, *m.Delta), config.GetKey())
-		}
 	}
 
 	log.Info().Msgf("получена метрика %s. Тип: %s, значение: %v, дельта: %v, хэш: %s", m.ID, m.MType, m.Value, m.Delta, m.Hash)
