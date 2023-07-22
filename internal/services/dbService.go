@@ -24,7 +24,7 @@ type dbRepository struct {
 }
 
 func NewDBRepository(db *pgxpool.Pool) storages.Repository {
-	_, err := db.Query(context.Background(), "create table if not exists metrics (id text primary key, mtype text not null, delta bigint, value double precision, hash text)")
+	_, err := db.Exec(context.Background(), "create table if not exists metrics (id text primary key, mtype text not null, delta bigint, value double precision, hash text)")
 	if err != nil {
 		log.Panic().Timestamp().Err(err).Msg("ошибка создания таблицы метрик")
 	}
