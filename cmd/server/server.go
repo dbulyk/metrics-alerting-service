@@ -2,13 +2,16 @@ package main
 
 import (
 	"context"
+	"database/sql"
 
+	"github.com/dbulyk/metrics-alerting-service/internal/fileio"
+	"github.com/dbulyk/metrics-alerting-service/internal/handlers"
 	"github.com/dbulyk/metrics-alerting-service/internal/middlewares"
+	"github.com/dbulyk/metrics-alerting-service/internal/services"
+	"github.com/dbulyk/metrics-alerting-service/internal/storages"
 	"github.com/go-chi/chi/v5/middleware"
+	_ "github.com/jackc/pgx/v5/stdlib"
 
-	"github.com/jackc/pgx/v5/pgxpool"
-
-	"github.com/dbulyk/metrics-alerting-service/internal/metric"
 	"github.com/go-chi/chi/v5"
 
 	"net/http"
@@ -34,19 +37,19 @@ func main() {
 	log.Info().Msg("конфигурация сервера получена")
 
 	var (
-		metrics metric.Repository
+		metrics storages.Repository
 	)
 	if len(cfg.DatabaseDsn) > 0 {
 		log.Info().Msgf("подключение к базе данных по адресу: %s", cfg.DatabaseDsn)
-		db, err := pgxpool.New(context.Background(), cfg.DatabaseDsn)
+		db, err := sql.Open("pgx", cfg.DatabaseDsn)
 		if err != nil {
 			log.Panic().Timestamp().Err(err).Msg("ошибка открытия соединения с базой данных")
 		}
 		defer db.Close()
 
-		metrics = metric.NewDBRepository(db)
+		metrics = services.NewDBRepository(db)
 	} else {
-		metrics = metric.NewFileRepository()
+		metrics = services.NewFileRepository()
 	}
 
 	router := chi.NewRouter()
@@ -55,7 +58,7 @@ func main() {
 	router.Use(middleware.RealIP)
 	router.Use(middleware.Recoverer)
 	router.Use(middlewares.GzipMiddleware)
-	metricHandler := metric.NewRouter(router, &metrics)
+	metricHandler := handlers.NewRouter(router, &metrics)
 	metricHandler.Register(router)
 	log.Info().Msg("роутер инициализирован")
 
@@ -89,11 +92,11 @@ func main() {
 	shutdown(cfg, srv, metrics)
 }
 
-func shutdown(cfg config.Server, srv *http.Server, mem metric.Repository) {
+func shutdown(cfg config.Server, srv *http.Server, mem storages.Repository) {
 	log.Info().Msg("получен сигнал остановки")
 
 	if len(cfg.StoreFile) > 0 && len(cfg.DatabaseDsn) == 0 {
-		producer, err := metric.NewProducer(cfg.StoreFile)
+		producer, err := fileio.NewProducer(cfg.StoreFile)
 		if err != nil {
 			log.Error().Timestamp().Err(err).Msg("ошибка инициализации файла")
 		} else {
@@ -116,9 +119,9 @@ func shutdown(cfg config.Server, srv *http.Server, mem metric.Repository) {
 	log.Info().Msg("сервер остановлен")
 }
 
-func startWriteToFile(cfg config.Server, metrics metric.Repository) *time.Ticker {
+func startWriteToFile(cfg config.Server, metrics storages.Repository) *time.Ticker {
 	if cfg.Restore && len(cfg.StoreFile) > 0 {
-		consumer, err := metric.NewConsumer(cfg.StoreFile)
+		consumer, err := fileio.NewConsumer(cfg.StoreFile)
 		if err != nil {
 			log.Error().Timestamp().Err(err).Msg("ошибка инициализации файла")
 		} else {
@@ -134,7 +137,7 @@ func startWriteToFile(cfg config.Server, metrics metric.Repository) *time.Ticker
 		writeTicker := time.NewTicker(cfg.StoreInterval)
 		go func() {
 			for range writeTicker.C {
-				producer, err := metric.NewProducer(cfg.StoreFile)
+				producer, err := fileio.NewProducer(cfg.StoreFile)
 				if err != nil {
 					log.Error().Timestamp().Err(err).Msg("ошибка инициализации файла")
 					return

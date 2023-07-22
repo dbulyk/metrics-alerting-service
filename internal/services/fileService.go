@@ -1,4 +1,4 @@
-package metric
+package services
 
 import (
 	"crypto/hmac"
@@ -7,6 +7,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/dbulyk/metrics-alerting-service/internal/fileio"
+	"github.com/dbulyk/metrics-alerting-service/internal/models"
+	"github.com/dbulyk/metrics-alerting-service/internal/storages"
+
 	"github.com/dbulyk/metrics-alerting-service/internal/utils"
 
 	"github.com/dbulyk/metrics-alerting-service/config"
@@ -14,8 +18,8 @@ import (
 )
 
 const (
-	counter = "counter"
-	gauge   = "gauge"
+	Counter = "counter"
+	Gauge   = "gauge"
 )
 
 var (
@@ -24,35 +28,35 @@ var (
 	ErrInvalidMetricType = errors.New("такого типа метрик не существует")
 )
 
-type repository struct {
+type fileRepository struct {
 	sync.Mutex
-	metrics       []*Metric
+	metrics       []*models.Metric
 	storeInterval time.Duration
 	storeFile     string
 }
 
-func NewFileRepository() Repository {
-	return &repository{
-		metrics:       make([]*Metric, 0, 50),
+func NewFileRepository() storages.Repository {
+	return &fileRepository{
+		metrics:       make([]*models.Metric, 0, 50),
 		Mutex:         sync.Mutex{},
 		storeFile:     config.GetStoreFile(),
 		storeInterval: config.GetStoreInterval(),
 	}
 }
 
-func (ms *repository) GetAll() ([]*Metric, error) {
-	ms.Lock()
-	var listMetrics = make([]*Metric, len(ms.metrics))
-	copy(listMetrics, ms.metrics)
-	ms.Unlock()
+func (fr *fileRepository) GetAll() ([]*models.Metric, error) {
+	fr.Lock()
+	var listMetrics = make([]*models.Metric, len(fr.metrics))
+	copy(listMetrics, fr.metrics)
+	fr.Unlock()
 	return listMetrics, nil
 }
 
-func (ms *repository) Set(metric Metric) (*Metric, error) {
-	ms.Lock()
-	defer ms.Unlock()
+func (fr *fileRepository) Set(metric models.Metric) (*models.Metric, error) {
+	fr.Lock()
+	defer fr.Unlock()
 
-	if metric.MType != counter && metric.MType != gauge {
+	if metric.MType != Counter && metric.MType != Gauge {
 		log.Error().Msgf("типа метрики %s не существует", metric.MType)
 		return nil, ErrInvalidMetricType
 	}
@@ -61,9 +65,9 @@ func (ms *repository) Set(metric Metric) (*Metric, error) {
 	key := config.GetKey()
 	if len(key) > 0 {
 		switch metric.MType {
-		case gauge:
+		case Gauge:
 			s = fmt.Sprintf("%s:%s:%f", metric.ID, metric.MType, *metric.Value)
-		case counter:
+		case Counter:
 			s = fmt.Sprintf("%s:%s:%d", metric.ID, metric.MType, *metric.Delta)
 		}
 
@@ -74,9 +78,9 @@ func (ms *repository) Set(metric Metric) (*Metric, error) {
 		}
 	}
 
-	for _, m := range ms.metrics {
+	for _, m := range fr.metrics {
 		if m.ID == metric.ID && m.MType == metric.MType {
-			if m.MType == counter {
+			if m.MType == Counter {
 				d := *m.Delta + *metric.Delta
 				m.Delta = &d
 				if len(key) > 0 {
@@ -91,14 +95,14 @@ func (ms *repository) Set(metric Metric) (*Metric, error) {
 		}
 	}
 
-	ms.metrics = append(ms.metrics, &metric)
+	fr.metrics = append(fr.metrics, &metric)
 
-	if len(ms.storeFile) != 0 && ms.storeInterval == 0 {
-		producer, err := NewProducer(ms.storeFile)
+	if len(fr.storeFile) != 0 && fr.storeInterval == 0 {
+		producer, err := fileio.NewProducer(fr.storeFile)
 		if err != nil {
 			return nil, err
 		}
-		err = producer.Save(ms, ms.storeFile)
+		err = producer.Save(fr, fr.storeFile)
 		if err != nil {
 			log.Error().Err(err).Msg("ошибка сохранения метрики в файл")
 			return nil, err
@@ -108,18 +112,18 @@ func (ms *repository) Set(metric Metric) (*Metric, error) {
 	return &metric, nil
 }
 
-func (ms *repository) Get(id string, mType string) (*Metric, error) {
-	ms.Lock()
-	for _, m := range ms.metrics {
+func (fr *fileRepository) Get(id string, mType string) (*models.Metric, error) {
+	fr.Lock()
+	for _, m := range fr.metrics {
 		if m.ID == id && m.MType == mType {
-			ms.Unlock()
+			fr.Unlock()
 			return m, nil
 		}
 	}
-	ms.Unlock()
+	fr.Unlock()
 	return nil, ErrInvalidMetric
 }
 
-func (ms *repository) Ping() error {
+func (fr *fileRepository) Ping() error {
 	return nil
 }

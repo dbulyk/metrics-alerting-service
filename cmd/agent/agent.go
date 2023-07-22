@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/dbulyk/metrics-alerting-service/internal/models"
 	"io"
 	"log"
 	"math"
@@ -13,7 +14,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/dbulyk/metrics-alerting-service/internal/metric"
 	"github.com/dbulyk/metrics-alerting-service/internal/utils"
 
 	"github.com/dbulyk/metrics-alerting-service/config"
@@ -36,7 +36,7 @@ func collectAndSendMetrics(done chan bool) {
 	}
 
 	var (
-		metrics   = make([]metric.Metric, 0, 50)
+		metrics   = make([]models.Metric, 0, 50)
 		client    = &http.Client{}
 		pollCount atomic.Int64
 	)
@@ -95,7 +95,7 @@ func collectAndSendMetrics(done chan bool) {
 	}
 }
 
-func createRequestToMetricsUpdate(metric *metric.Metric, address string, key string) (*http.Request, error) {
+func createRequestToMetricsUpdate(metric *models.Metric, address string, key string) (*http.Request, error) {
 	if len(key) != 0 {
 		switch metric.MType {
 		case "gauge":
@@ -119,12 +119,12 @@ func createRequestToMetricsUpdate(metric *metric.Metric, address string, key str
 	return request, nil
 }
 
-func collectMetrics(count *atomic.Int64) (metrics []metric.Metric) {
+func collectMetrics(count *atomic.Int64) (metrics []models.Metric) {
 	runtime.ReadMemStats(&rtm)
 	randomValue := rand.Float64()
 	countValue := count.Load()
 
-	return []metric.Metric{
+	return []models.Metric{
 		{
 			ID:    "Alloc",
 			MType: "gauge",

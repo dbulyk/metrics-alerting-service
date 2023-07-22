@@ -1,8 +1,11 @@
-package metric
+package fileio
 
 import (
 	"encoding/json"
 	"os"
+
+	"github.com/dbulyk/metrics-alerting-service/internal/models"
+	"github.com/dbulyk/metrics-alerting-service/internal/storages"
 
 	"github.com/rs/zerolog/log"
 )
@@ -28,7 +31,7 @@ func NewProducer(filename string) (*Producer, error) {
 	}, nil
 }
 
-func (p *Producer) Write(metrics []*Metric) error {
+func (p *Producer) Write(metrics []*models.Metric) error {
 	for i := range metrics {
 		err := p.encoder.Encode(&metrics[i])
 		if err != nil {
@@ -42,7 +45,7 @@ func (p *Producer) Close() error {
 	return p.file.Close()
 }
 
-func (p *Producer) Save(mem Repository, filename string) error {
+func (p *Producer) Save(mem storages.Repository, filename string) error {
 	listMetrics, _ := mem.GetAll()
 
 	defer func(p *Producer) {

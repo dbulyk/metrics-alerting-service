@@ -1,10 +1,12 @@
-package metric
+package handlers
 
 import (
 	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/dbulyk/metrics-alerting-service/internal/models"
+	"github.com/dbulyk/metrics-alerting-service/internal/services"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -56,7 +58,7 @@ func testRequest(t *testing.T, ts *httptest.Server, method, path string, jsonDat
 }
 
 func TestHandler_GetWithText(t *testing.T) {
-	mem := NewFileRepository()
+	mem := services.NewFileRepository()
 
 	r := chi.NewRouter()
 	h := NewRouter(r, &mem)
@@ -112,7 +114,7 @@ func TestHandler_GetWithText(t *testing.T) {
 }
 
 func TestHandler_GetWithJSON(t *testing.T) {
-	mem := NewFileRepository()
+	mem := services.NewFileRepository()
 
 	r := chi.NewRouter()
 	h := NewRouter(r, &mem)
@@ -129,7 +131,7 @@ func TestHandler_GetWithJSON(t *testing.T) {
 	statusCode, _ = testRequest(t, ts, "POST", "/update/counter/testCounter/123/"+hash, nil)
 	assert.Equal(t, http.StatusOK, statusCode)
 
-	jsonData, err := json.Marshal(Metric{
+	jsonData, err := json.Marshal(models.Metric{
 		ID:    "testGauge",
 		MType: "gauge",
 		Delta: nil,
@@ -140,12 +142,12 @@ func TestHandler_GetWithJSON(t *testing.T) {
 	statusCode, body := testRequest(t, ts, "POST", "/value/", jsonData)
 	assert.Equal(t, http.StatusOK, statusCode)
 
-	var m Metric
+	var m models.Metric
 	err = json.Unmarshal([]byte(body), &m)
 	assert.NoError(t, err)
 	assert.Equal(t, float64(123.15), *m.Value)
 
-	jsonData, err = json.Marshal(Metric{
+	jsonData, err = json.Marshal(models.Metric{
 		ID:    "unknown",
 		MType: "gauge",
 		Delta: nil,
@@ -156,7 +158,7 @@ func TestHandler_GetWithJSON(t *testing.T) {
 	statusCode, _ = testRequest(t, ts, "POST", "/value/", jsonData)
 	assert.Equal(t, http.StatusNotFound, statusCode)
 
-	jsonData, err = json.Marshal(Metric{
+	jsonData, err = json.Marshal(models.Metric{
 		ID:    "",
 		MType: "",
 		Delta: nil,
@@ -169,7 +171,7 @@ func TestHandler_GetWithJSON(t *testing.T) {
 }
 
 func TestHandler_UpdateWithText(t *testing.T) {
-	mem := NewFileRepository()
+	mem := services.NewFileRepository()
 
 	r := chi.NewRouter()
 	h := NewRouter(r, &mem)
@@ -228,7 +230,7 @@ func TestHandler_UpdateWithText(t *testing.T) {
 }
 
 func TestHandler_UpdateWithJSON(t *testing.T) {
-	mem := NewFileRepository()
+	mem := services.NewFileRepository()
 
 	r := chi.NewRouter()
 	h := NewRouter(r, &mem)
@@ -239,14 +241,14 @@ func TestHandler_UpdateWithJSON(t *testing.T) {
 
 	testCases := []struct {
 		name       string
-		body       Metric
+		body       models.Metric
 		statusCode int
 	}{
 		{
 			"correct metric counter",
-			Metric{
+			models.Metric{
 				ID:    "testCounter",
-				MType: counter,
+				MType: services.Counter,
 				Delta: &delta,
 				Value: nil,
 				Hash:  utils.Hash(fmt.Sprintf("testCounter:counter:%d", delta), config.GetKey()),
@@ -255,9 +257,9 @@ func TestHandler_UpdateWithJSON(t *testing.T) {
 		},
 		{
 			"correct metric gauge",
-			Metric{
+			models.Metric{
 				ID:    "testGauge",
-				MType: gauge,
+				MType: services.Gauge,
 				Delta: nil,
 				Value: &value,
 				Hash:  utils.Hash(fmt.Sprintf("testGauge:gauge:%f", value), config.GetKey()),
@@ -266,7 +268,7 @@ func TestHandler_UpdateWithJSON(t *testing.T) {
 		},
 		{
 			"incorrect metric with nil value",
-			Metric{
+			models.Metric{
 				ID:    "testIncorrect",
 				MType: "incorrect",
 				Delta: nil,
@@ -305,7 +307,7 @@ func TestHandler_UpdateWithJSON(t *testing.T) {
 			assert.Equal(t, tc.statusCode, resp.StatusCode)
 
 			if resp.StatusCode == http.StatusOK {
-				var resMetric Metric
+				var resMetric models.Metric
 				err = json.NewDecoder(resp.Body).Decode(&resMetric)
 				require.NoError(t, err)
 
@@ -316,7 +318,7 @@ func TestHandler_UpdateWithJSON(t *testing.T) {
 }
 
 func TestHandler_GetAll(t *testing.T) {
-	mem := NewFileRepository()
+	mem := services.NewFileRepository()
 
 	r := chi.NewRouter()
 	h := NewRouter(r, &mem)

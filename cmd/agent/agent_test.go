@@ -1,12 +1,11 @@
 package main
 
 import (
+	"github.com/dbulyk/metrics-alerting-service/internal/models"
 	"net/http"
 	"sync/atomic"
 	"testing"
 	"time"
-
-	"github.com/dbulyk/metrics-alerting-service/internal/metric"
 
 	"github.com/jarcoal/httpmock"
 	"github.com/stretchr/testify/assert"
@@ -14,7 +13,7 @@ import (
 
 func TestCreateRequestToMetricsUpdate(t *testing.T) {
 	val := 8.18
-	metric := metric.Metric{
+	metric := models.Metric{
 		ID:    "test",
 		MType: "gauge",
 		Delta: nil,

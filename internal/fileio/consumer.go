@@ -1,9 +1,12 @@
-package metric
+package fileio
 
 import (
 	"bufio"
 	"encoding/json"
 	"os"
+
+	"github.com/dbulyk/metrics-alerting-service/internal/models"
+	"github.com/dbulyk/metrics-alerting-service/internal/storages"
 
 	"github.com/rs/zerolog/log"
 )
@@ -26,10 +29,10 @@ func NewConsumer(filename string) (*Consumer, error) {
 	}, nil
 }
 
-func (c *Consumer) Read() ([]Metric, error) {
-	metrics := make([]Metric, 0, 50)
+func (c *Consumer) Read() ([]models.Metric, error) {
+	metrics := make([]models.Metric, 0, 50)
 	for c.reader.Scan() {
-		metric := Metric{}
+		metric := models.Metric{}
 		if err := json.Unmarshal(c.reader.Bytes(), &metric); err != nil {
 			return nil, err
 		}
@@ -42,7 +45,7 @@ func (c *Consumer) Close() error {
 	return c.file.Close()
 }
 
-func (c *Consumer) Restore(mem Repository) error {
+func (c *Consumer) Restore(mem storages.Repository) error {
 	defer func(consumer *Consumer) {
 		err := consumer.Close()
 		if err != nil {

@@ -1,10 +1,12 @@
-package metric
+package services
 
 import (
-	"context"
 	"crypto/hmac"
+	"database/sql"
 	"errors"
 	"fmt"
+	"github.com/dbulyk/metrics-alerting-service/internal/models"
+	"github.com/dbulyk/metrics-alerting-service/internal/storages"
 
 	"github.com/jackc/pgx/v5"
 
@@ -12,16 +14,14 @@ import (
 	"github.com/dbulyk/metrics-alerting-service/internal/utils"
 
 	"github.com/rs/zerolog/log"
-
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type dbRepository struct {
-	db *pgxpool.Pool
+	db *sql.DB
 }
 
-func NewDBRepository(db *pgxpool.Pool) Repository {
-	_, err := db.Exec(context.Background(), "create table if not exists metrics (id text primary key, mtype text not null, delta bigint, value double precision, hash text)")
+func NewDBRepository(db *sql.DB) storages.Repository {
+	_, err := db.Exec("create table if not exists metrics (id text primary key, mtype text not null, delta bigint, value double precision, hash text)")
 	if err != nil {
 		log.Panic().Timestamp().Err(err).Msg("ошибка создания таблицы метрик")
 	}
@@ -31,15 +31,15 @@ func NewDBRepository(db *pgxpool.Pool) Repository {
 	}
 }
 
-func (d *dbRepository) Set(metric Metric) (*Metric, error) {
+func (dr *dbRepository) Set(metric models.Metric) (*models.Metric, error) {
 	log.Info().Msgf("добавление метрики %s. Тип: %s, значение: %v, дельта: %v, хэш: %s", metric.ID, metric.MType, metric.Value, metric.Delta, metric.Hash)
 	var mHash, key, s string
 	key = config.GetKey()
 	if len(key) > 0 {
 		switch metric.MType {
-		case gauge:
+		case Gauge:
 			s = fmt.Sprintf("%s:%s:%f", metric.ID, metric.MType, *metric.Value)
-		case counter:
+		case Counter:
 			s = fmt.Sprintf("%s:%s:%d", metric.ID, metric.MType, *metric.Delta)
 		}
 
@@ -50,8 +50,8 @@ func (d *dbRepository) Set(metric Metric) (*Metric, error) {
 		}
 	}
 
-	if metric.MType == counter {
-		res := d.db.QueryRow(context.Background(), "select delta from metrics where id = $1 and mtype = $2", metric.ID, metric.MType)
+	if metric.MType == Counter {
+		res := dr.db.QueryRow("select delta from metrics where id = $1 and mtype = $2", metric.ID, metric.MType)
 		if res != nil {
 			var delta int64
 			err := res.Scan(&delta)
@@ -68,8 +68,7 @@ func (d *dbRepository) Set(metric Metric) (*Metric, error) {
 		}
 	}
 
-	_, err := d.db.Exec(context.Background(),
-		"insert into metrics(id, mtype, delta, value, hash) values($1, $2, $3, $4, $5) on conflict (id) do update set delta = $3, value = $4, hash = $5",
+	_, err := dr.db.Exec("insert into metrics(id, mtype, delta, value, hash) values($1, $2, $3, $4, $5) on conflict (id) do update set delta = $3, value = $4, hash = $5",
 		metric.ID, metric.MType, metric.Delta, metric.Value, metric.Hash)
 	if err != nil {
 		log.Info().Msgf("ошибка записи метрики в базу данных: %s", err)
@@ -78,37 +77,38 @@ func (d *dbRepository) Set(metric Metric) (*Metric, error) {
 	return &metric, nil
 }
 
-func (d *dbRepository) Get(mName string, mType string) (*Metric, error) {
+func (dr *dbRepository) Get(mName string, mType string) (*models.Metric, error) {
 	log.Info().Msgf("получение метрики %s. Тип: %s", mName, mType)
-	rows := d.db.QueryRow(context.Background(),
-		"select id, mtype, delta, value, hash from metrics where id = $1 and mtype = $2", mName, mType)
-	var m Metric
+	rows := dr.db.QueryRow("select id, mtype, delta, value, hash from metrics where id = $1 and mtype = $2", mName, mType)
+	var m models.Metric
 	err := rows.Scan(&m.ID, &m.MType, &m.Delta, &m.Value, &m.Hash)
-	if len(m.Hash) == 0 && len(config.GetKey()) == 0 {
-		if m.MType == gauge {
-			m.Hash = utils.Hash(fmt.Sprintf("%s:%s:%f", m.ID, m.MType, *m.Value), config.GetKey())
-		} else if m.MType == counter {
-			m.Hash = utils.Hash(fmt.Sprintf("%s:%s:%d", m.ID, m.MType, *m.Delta), config.GetKey())
-		}
-	}
 	if err != nil {
 		log.Info().Msgf("ошибка сканирования метрики из базы данных: %s", err)
 		return nil, ErrInvalidMetric
 	}
+
+	if len(m.Hash) == 0 && len(config.GetKey()) > 0 {
+		if m.MType == Gauge {
+			m.Hash = utils.Hash(fmt.Sprintf("%s:%s:%f", m.ID, m.MType, *m.Value), config.GetKey())
+		} else if m.MType == Counter {
+			m.Hash = utils.Hash(fmt.Sprintf("%s:%s:%dr", m.ID, m.MType, *m.Delta), config.GetKey())
+		}
+	}
+
 	log.Info().Msgf("получена метрика %s. Тип: %s, значение: %v, дельта: %v, хэш: %s", m.ID, m.MType, m.Value, m.Delta, m.Hash)
 	return &m, nil
 }
 
-func (d *dbRepository) GetAll() ([]*Metric, error) {
-	var metrics []*Metric
+func (dr *dbRepository) GetAll() ([]*models.Metric, error) {
+	var metrics []*models.Metric
 
-	rows, err := d.db.Query(context.Background(), "select id, mtype, delta, value from metrics order by id")
+	rows, err := dr.db.Query("select id, mtype, delta, value from metrics order by id")
 	if err != nil {
 		log.Info().Msgf("ошибка получения метрик из базы данных: %s", err)
 		return nil, err
 	}
 	for rows.Next() {
-		var m Metric
+		var m models.Metric
 		err = rows.Scan(&m.ID, &m.MType, &m.Delta, &m.Value)
 		if err != nil {
 			log.Info().Msgf("ошибка сканирования метрик из базы данных: %s", err)
@@ -124,6 +124,6 @@ func (d *dbRepository) GetAll() ([]*Metric, error) {
 	return metrics, nil
 }
 
-func (d *dbRepository) Ping() error {
-	return d.db.Ping(context.Background())
+func (dr *dbRepository) Ping() error {
+	return dr.db.Ping()
 }

@@ -1,4 +1,4 @@
-package metric
+package handlers
 
 import (
 	"encoding/json"
@@ -9,18 +9,20 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/dbulyk/metrics-alerting-service/internal/handlers"
+	"github.com/dbulyk/metrics-alerting-service/internal/models"
+	"github.com/dbulyk/metrics-alerting-service/internal/services"
+	"github.com/dbulyk/metrics-alerting-service/internal/storages"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/rs/zerolog/log"
 )
 
 type handler struct {
-	repository Repository
+	repository storages.Repository
 	r          chi.Router
 }
 
-func NewRouter(router *chi.Mux, rep *Repository) (r handlers.Handler) {
+func NewRouter(router *chi.Mux, rep *storages.Repository) (r Handler) {
 	return &handler{
 		repository: *rep,
 		r:          router,
@@ -47,7 +49,7 @@ func (h *handler) UpdateWithJSON(w http.ResponseWriter, r *http.Request) {
 		}
 	}(r.Body)
 
-	var m Metric
+	var m models.Metric
 	if err := json.NewDecoder(r.Body).Decode(&m); err != nil {
 		log.Error().Err(err).Msgf("ошибка декодирования JSON")
 		w.WriteHeader(http.StatusBadRequest)
@@ -56,7 +58,7 @@ func (h *handler) UpdateWithJSON(w http.ResponseWriter, r *http.Request) {
 
 	metric, err := h.repository.Set(m)
 	if err != nil {
-		if errors.Is(err, ErrInvalidHash) {
+		if errors.Is(err, services.ErrInvalidHash) {
 			w.WriteHeader(http.StatusBadRequest)
 			w.Write([]byte(err.Error()))
 			return
@@ -101,7 +103,7 @@ func (h *handler) UpdateWithText(w http.ResponseWriter, r *http.Request) {
 	}
 
 	switch mType {
-	case gauge:
+	case services.Gauge:
 		value, err := strconv.ParseFloat(chi.URLParam(r, "value"), 64)
 		if err != nil {
 			log.Error().Err(err).Msgf("ошибка парсинга значения метрики: %s", chi.URLParam(r, "value"))
@@ -109,7 +111,7 @@ func (h *handler) UpdateWithText(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		mValueFloat = &value
-	case counter:
+	case services.Counter:
 		value, err := strconv.ParseInt(chi.URLParam(r, "value"), 0, 64)
 		if err != nil {
 			log.Error().Err(err).Msgf("ошибка парсинга значения метрики: %s", chi.URLParam(r, "value"))
@@ -119,7 +121,7 @@ func (h *handler) UpdateWithText(w http.ResponseWriter, r *http.Request) {
 		mValueInt = &value
 	}
 
-	metric := Metric{
+	metric := models.Metric{
 		ID:    mName,
 		MType: mType,
 		Value: mValueFloat,
@@ -171,7 +173,7 @@ func (h *handler) GetWithJSON(w http.ResponseWriter, r *http.Request) {
 		}
 	}(r.Body)
 
-	var m Metric
+	var m models.Metric
 
 	if err := json.NewDecoder(r.Body).Decode(&m); err != nil {
 		log.Error().Err(err).Msg("ошибка декодирования JSON")
@@ -222,7 +224,7 @@ func (h *handler) GetWithText(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if mType == counter {
+	if mType == services.Counter {
 		fmt.Fprint(w, *metric.Delta)
 	} else {
 		fmt.Fprint(w, *metric.Value)
