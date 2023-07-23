@@ -37,6 +37,7 @@ func (h *handler) Register(router *chi.Mux) {
 		r.Post("/update/{type}/{name}/{value}", h.UpdateWithText)
 		r.Post("/update/{type}/{name}/{value}/{hash}", h.UpdateWithText)
 		r.Post("/update/", h.UpdateWithJSON)
+		r.Post("/updates/", h.Updates)
 		r.Get("/ping", h.Ping)
 	})
 }
@@ -228,6 +229,32 @@ func (h *handler) GetWithText(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(w, *metric.Delta)
 	} else {
 		fmt.Fprint(w, *metric.Value)
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
+func (h *handler) Updates(w http.ResponseWriter, r *http.Request) {
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			log.Error().Err(err).Msg("ошибка закрытия тела запроса")
+		}
+	}(r.Body)
+
+	var metrics []models.Metric
+
+	if err := json.NewDecoder(r.Body).Decode(&metrics); err != nil {
+		log.Error().Err(err).Msg("ошибка декодирования JSON")
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	err := h.repository.Updates(metrics)
+	if err != nil {
+		log.Error().Err(err).Msg("ошибка обновления метрик")
+		w.WriteHeader(http.StatusBadRequest)
+		return
 	}
 
 	w.WriteHeader(http.StatusOK)

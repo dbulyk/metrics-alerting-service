@@ -1,31 +1,39 @@
 package main
 
 import (
-	"github.com/dbulyk/metrics-alerting-service/internal/models"
-	"net/http"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/dbulyk/metrics-alerting-service/internal/models"
 
 	"github.com/jarcoal/httpmock"
 	"github.com/stretchr/testify/assert"
 )
 
-func TestCreateRequestToMetricsUpdate(t *testing.T) {
-	val := 8.18
-	metric := models.Metric{
-		ID:    "test",
-		MType: "gauge",
-		Delta: nil,
-		Value: &val,
-	}
-	request, err := createRequestToMetricsUpdate(&metric, "localhost:8080", "test")
+func TestSendRequestToMetricsUpdate(t *testing.T) {
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
 
-	expectedEndpoint := "http://localhost:8080/update/"
-	assert.NoErrorf(t, err, "функция не должна была вернуть ошибку, но вернула %s", err)
-	assert.Equalf(t, expectedEndpoint, request.URL.String(), "ожидался эндпоинт %s, получен %s", expectedEndpoint, request.URL.String())
-	assert.Equalf(t, http.MethodPost, request.Method, "ожидаемый метод отправки: %s, получен %s", http.MethodPost, request.Method)
-	assert.Equalf(t, "application/json", request.Header.Get("Content-Type"), "ожидаемый Content-Type: %s, получен %s", "application/json", request.Header.Get("Content-Type"))
+	httpmock.RegisterResponder("POST", "http://localhost:8080/updates/",
+		httpmock.NewStringResponder(200, ""))
+
+	metrics := []models.Metric{
+		{
+			ID:    "test",
+			MType: "gauge",
+			Value: new(float64),
+			Delta: new(int64),
+		},
+	}
+
+	err := sendRequestToMetricsUpdate(metrics, "localhost:8080", "test_key")
+	assert.NoError(t, err)
+
+	info := httpmock.GetCallCountInfo()
+	if info["POST http://localhost:8080/updates/"] == 0 {
+		t.Error("Ожидался запрос на сервер, но он не был получен")
+	}
 }
 func TestCollectMetrics(t *testing.T) {
 	f := atomic.Int64{}

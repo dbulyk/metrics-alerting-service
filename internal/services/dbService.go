@@ -5,6 +5,7 @@ import (
 	"crypto/hmac"
 	"errors"
 	"fmt"
+
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/dbulyk/metrics-alerting-service/internal/models"
@@ -35,42 +36,14 @@ func NewDBRepository(db *pgxpool.Pool) storages.Repository {
 
 func (dr *dbRepository) Set(metric models.Metric) (*models.Metric, error) {
 	log.Info().Msgf("добавление метрики %s. Тип: %s, значение: %v, дельта: %v, хэш: %s", metric.ID, metric.MType, metric.Value, metric.Delta, metric.Hash)
-	var mHash, key, s string
-	key = config.GetKey()
-	if len(key) > 0 {
-		switch metric.MType {
-		case Gauge:
-			s = fmt.Sprintf("%s:%s:%f", metric.ID, metric.MType, *metric.Value)
-		case Counter:
-			s = fmt.Sprintf("%s:%s:%d", metric.ID, metric.MType, *metric.Delta)
-		}
 
-		mHash = utils.Hash(s, key)
-		if !hmac.Equal([]byte(mHash), []byte(metric.Hash)) {
-			log.Error().Msgf("входящий хэш не совпадает с вычисленным. Метрика %s не будет добавлена", metric.ID)
-			return nil, ErrInvalidHash
-		}
+	key := config.GetKey()
+	err := checkHashAndAddDelta(dr.db, &metric, key)
+	if err != nil {
+		return nil, err
 	}
 
-	if metric.MType == Counter {
-		res := dr.db.QueryRow(context.Background(), "select delta from metrics where id = $1 and mtype = $2", metric.ID, metric.MType)
-		if res != nil {
-			var delta int64
-			err := res.Scan(&delta)
-			if err == nil {
-				del := delta + *metric.Delta
-				metric.Delta = &del
-				if len(key) > 0 {
-					s = fmt.Sprintf("%s:%s:%d", metric.ID, metric.MType, *metric.Delta)
-					metric.Hash = utils.Hash(s, key)
-				}
-			} else if !errors.Is(err, pgx.ErrNoRows) {
-				return nil, err
-			}
-		}
-	}
-
-	_, err := dr.db.Exec(context.Background(),
+	_, err = dr.db.Exec(context.Background(),
 		"insert into metrics(id, mtype, delta, value, hash) values($1, $2, $3, $4, $5) on conflict (id) do update set delta = $3, value = $4, hash = $5",
 		metric.ID, metric.MType, metric.Delta, metric.Value, metric.Hash)
 	if err != nil {
@@ -128,6 +101,80 @@ func (dr *dbRepository) GetAll() ([]*models.Metric, error) {
 	return metrics, nil
 }
 
+func (dr *dbRepository) Updates(metrics []models.Metric) error {
+	log.Info().Msgf("обновление метрик")
+
+	tx, err := dr.db.Begin(context.Background())
+	if err != nil {
+		log.Info().Msgf("ошибка начала транзакции: %s", err)
+		return err
+	}
+
+	key := config.GetKey()
+	for i := range metrics {
+		err = checkHashAndAddDelta(dr.db, &metrics[i], key)
+		if err != nil {
+			return err
+		}
+
+		_, err = tx.Exec(context.Background(), "insert into metrics(id, mtype, delta, value, hash) values($1, $2, $3, $4, $5) on conflict (id) do update set delta = $3, value = $4, hash = $5",
+			metrics[i].ID, metrics[i].MType, metrics[i].Delta, metrics[i].Value, metrics[i].Hash)
+		if err != nil {
+			log.Error().Err(err).Msg("ошибка записи метрики в базу данных. Откатываем транзакцию")
+			err = tx.Rollback(context.Background())
+			if err != nil {
+				log.Error().Err(err).Msg("ошибка отката транзакции")
+				return err
+			}
+			return err
+		}
+	}
+
+	err = tx.Commit(context.Background())
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (dr *dbRepository) Ping() error {
 	return dr.db.Ping(context.Background())
+}
+
+func checkHashAndAddDelta(db *pgxpool.Pool, metric *models.Metric, key string) error {
+	var mHash, s string
+
+	if len(key) > 0 {
+		switch metric.MType {
+		case Gauge:
+			s = fmt.Sprintf("%s:%s:%f", metric.ID, metric.MType, *metric.Value)
+		case Counter:
+			s = fmt.Sprintf("%s:%s:%d", metric.ID, metric.MType, *metric.Delta)
+		}
+
+		mHash = utils.Hash(s, key)
+		if !hmac.Equal([]byte(mHash), []byte(metric.Hash)) {
+			log.Error().Msgf("входящий хэш не совпадает с вычисленным. Метрика %s не будет добавлена", metric.ID)
+			return ErrInvalidHash
+		}
+
+		if metric.MType == Counter {
+			res := db.QueryRow(context.Background(), "select delta from metrics where id = $1 and mtype = $2", metric.ID, metric.MType)
+			if res != nil {
+				var delta int64
+				err := res.Scan(&delta)
+				if err == nil {
+					del := delta + *metric.Delta
+					metric.Delta = &del
+					if len(key) > 0 {
+						s = fmt.Sprintf("%s:%s:%d", metric.ID, metric.MType, *metric.Delta)
+						metric.Hash = utils.Hash(s, key)
+					}
+				} else if !errors.Is(err, pgx.ErrNoRows) {
+					return err
+				}
+			}
+		}
+	}
+	return nil
 }

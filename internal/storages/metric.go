@@ -6,5 +6,6 @@ type Repository interface {
 	Set(metric models.Metric) (*models.Metric, error)
 	Get(mName string, mType string) (*models.Metric, error)
 	GetAll() ([]*models.Metric, error)
+	Updates([]models.Metric) error
 	Ping() error
 }
