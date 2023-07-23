@@ -95,13 +95,12 @@ func (fr *fileRepository) Updates(metrics []models.Metric) error {
 	defer fr.Unlock()
 
 	for _, metric := range metrics {
-		storage, err := addToStorage(fr.metrics, metric)
+		_, err := addToStorage(fr.metrics, metric)
 		if err != nil {
 			log.Error().Err(err).Msgf("произошла ошибка сохранения метрики %s, она не будет добавлена. "+
 				"Ошибка: %s", metric.ID, err)
 			continue
 		}
-		_ = copy(fr.metrics, storage)
 	}
 
 	if len(fr.storeFile) != 0 && fr.storeInterval == 0 {

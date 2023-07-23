@@ -74,6 +74,7 @@ func collectAndSendMetrics(done chan bool) {
 
 func sendRequestToMetricsUpdate(metrics []models.Metric, address string, key string) error {
 	if len(metrics) == 0 {
+		log.Print("на вход пришла пустая коллекция")
 		return nil
 	}
 
