@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 
 	"github.com/dbulyk/metrics-alerting-service/internal/fileio"
 	"github.com/dbulyk/metrics-alerting-service/internal/handlers"
@@ -9,8 +10,6 @@ import (
 	"github.com/dbulyk/metrics-alerting-service/internal/services"
 	"github.com/dbulyk/metrics-alerting-service/internal/storages"
 	"github.com/go-chi/chi/v5/middleware"
-	"github.com/jackc/pgx/v5/pgxpool"
-
 	_ "github.com/jackc/pgx/v5/stdlib"
 
 	"github.com/go-chi/chi/v5"
@@ -37,16 +36,21 @@ func main() {
 	cfg := config.GetServerCfg()
 	log.Info().Msg("конфигурация сервера получена")
 
-	var (
-		metrics storages.Repository
-	)
+	var metrics storages.Repository
+
 	if len(cfg.DatabaseDsn) > 0 {
 		log.Info().Msgf("подключение к базе данных по адресу: %s", cfg.DatabaseDsn)
-		db, err := pgxpool.New(context.Background(), cfg.DatabaseDsn)
+		db, err := sql.Open("pgx", cfg.DatabaseDsn)
 		if err != nil {
 			log.Panic().Timestamp().Err(err).Msg("ошибка открытия соединения с базой данных")
 		}
-		defer db.Close()
+
+		defer func(db *sql.DB) {
+			err = db.Close()
+			if err != nil {
+				log.Error().Timestamp().Err(err).Msg("ошибка закрытия соединения с базой данных")
+			}
+		}(db)
 
 		metrics = services.NewDBRepository(db)
 	} else {

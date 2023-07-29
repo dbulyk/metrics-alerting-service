@@ -2,11 +2,8 @@ package handlers
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/dbulyk/metrics-alerting-service/internal/models"
-	"github.com/dbulyk/metrics-alerting-service/internal/services"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -14,31 +11,26 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/dbulyk/metrics-alerting-service/internal/models"
+	"github.com/dbulyk/metrics-alerting-service/internal/services"
+
 	"github.com/dbulyk/metrics-alerting-service/internal/utils"
 
 	"github.com/dbulyk/metrics-alerting-service/config"
 	"github.com/go-chi/chi/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rs/zerolog/log"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/stretchr/testify/require"
 )
 
-var db *pgxpool.Pool
-
 func TestMain(m *testing.M) {
-	os.Chdir("../../")
-	cfg := config.GetServerCfg()
-
-	var err error
-	db, err = pgxpool.New(context.Background(), cfg.DatabaseDsn)
+	err := os.Chdir("../../")
 	if err != nil {
-		log.Panic().Timestamp().Err(err).Msg("ошибка открытия соединения с базой данных")
+		log.Panic().Timestamp().Err(err).Msg("ошибка смены директории")
+		return
 	}
-
 	code := m.Run()
-	db.Close()
 	os.Exit(code)
 }
 
@@ -52,7 +44,10 @@ func testRequest(t *testing.T, ts *httptest.Server, method, path string, jsonDat
 	respBody, err := io.ReadAll(resp.Body)
 	require.NoError(t, err)
 
-	resp.Body.Close()
+	err = resp.Body.Close()
+	if err != nil {
+		log.Panic().Timestamp().Err(err).Msg("ошибка закрытия тела ответа")
+	}
 
 	return resp.StatusCode, string(respBody)
 }
@@ -123,12 +118,20 @@ func TestHandler_GetWithJSON(t *testing.T) {
 	ts := httptest.NewServer(r)
 	defer ts.Close()
 
-	hash := utils.Hash("testGauge:gauge:123.150000", config.GetKey())
-	statusCode, _ := testRequest(t, ts, "POST", "/update/gauge/testGauge/123.15/"+hash, nil)
-	assert.Equal(t, http.StatusOK, statusCode)
+	value := 123.15
 
-	hash = utils.Hash("testCounter:counter:123", config.GetKey())
-	statusCode, _ = testRequest(t, ts, "POST", "/update/counter/testCounter/123/"+hash, nil)
+	m := models.Metric{
+		ID:    "testGauge",
+		MType: services.Gauge,
+		Delta: nil,
+		Value: &value,
+		Hash:  utils.Hash(fmt.Sprintf("testGauge:gauge:%f", value), config.GetKey()),
+	}
+
+	b, err := json.Marshal(m)
+	assert.NoError(t, err)
+
+	statusCode, _ := testRequest(t, ts, "POST", "/update/", b)
 	assert.Equal(t, http.StatusOK, statusCode)
 
 	jsonData, err := json.Marshal(models.Metric{
@@ -142,10 +145,9 @@ func TestHandler_GetWithJSON(t *testing.T) {
 	statusCode, body := testRequest(t, ts, "POST", "/value/", jsonData)
 	assert.Equal(t, http.StatusOK, statusCode)
 
-	var m models.Metric
 	err = json.Unmarshal([]byte(body), &m)
 	assert.NoError(t, err)
-	assert.Equal(t, float64(123.15), *m.Value)
+	assert.Equal(t, 123.15, *m.Value)
 
 	jsonData, err = json.Marshal(models.Metric{
 		ID:    "unknown",
@@ -207,7 +209,12 @@ func TestHandler_UpdateWithText(t *testing.T) {
 
 			resp, err := http.DefaultClient.Do(req)
 			require.NoError(t, err)
-			defer resp.Body.Close()
+			defer func(Body io.ReadCloser) {
+				err = Body.Close()
+				if err != nil {
+					log.Error().Err(err).Msg("ошибка закрытия тела ответа")
+				}
+			}(resp.Body)
 
 			assert.Equal(t, tc.statusCode, resp.StatusCode)
 
@@ -276,17 +283,6 @@ func TestHandler_UpdateWithJSON(t *testing.T) {
 			},
 			http.StatusNotImplemented,
 		},
-		//{
-		//	"incorrect hash",
-		//	Metric{
-		//		ID:    "testIncorrect",
-		//		MType: gauge,
-		//		Delta: nil,
-		//		Value: &value,
-		//		Hash:  utils.Hash("incorrect", config.GetKey()),
-		//	},
-		//	http.StatusBadRequest,
-		//},
 	}
 
 	for _, tc := range testCases {
@@ -302,7 +298,12 @@ func TestHandler_UpdateWithJSON(t *testing.T) {
 
 			resp, err := http.DefaultClient.Do(req)
 			require.NoError(t, err)
-			defer resp.Body.Close()
+			defer func(Body io.ReadCloser) {
+				err = Body.Close()
+				if err != nil {
+					log.Error().Err(err).Msg("ошибка закрытия тела ответа")
+				}
+			}(resp.Body)
 
 			assert.Equal(t, tc.statusCode, resp.StatusCode)
 

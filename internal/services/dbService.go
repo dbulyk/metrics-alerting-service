@@ -1,12 +1,10 @@
 package services
 
 import (
-	"context"
 	"crypto/hmac"
+	"database/sql"
 	"errors"
 	"fmt"
-
-	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/dbulyk/metrics-alerting-service/internal/models"
 	"github.com/dbulyk/metrics-alerting-service/internal/storages"
@@ -20,11 +18,11 @@ import (
 )
 
 type dbRepository struct {
-	db *pgxpool.Pool
+	db *sql.DB
 }
 
-func NewDBRepository(db *pgxpool.Pool) storages.Repository {
-	_, err := db.Exec(context.Background(), "create table if not exists metrics (id text primary key, mtype text not null, delta bigint, value double precision, hash text)")
+func NewDBRepository(db *sql.DB) storages.Repository {
+	_, err := db.Exec("create table if not exists metrics (id text primary key, mtype text not null, delta bigint, value double precision, hash text)")
 	if err != nil {
 		log.Panic().Timestamp().Err(err).Msg("ошибка создания таблицы метрик")
 	}
@@ -43,8 +41,7 @@ func (dr *dbRepository) Set(metric models.Metric) (*models.Metric, error) {
 		return nil, err
 	}
 
-	_, err = dr.db.Exec(context.Background(),
-		"insert into metrics(id, mtype, delta, value, hash) values($1, $2, $3, $4, $5) on conflict (id) do update set delta = $3, value = $4, hash = $5",
+	_, err = dr.db.Exec("insert into metrics(id, mtype, delta, value, hash) values($1, $2, $3, $4, $5) on conflict (id) do update set delta = $3, value = $4, hash = $5",
 		metric.ID, metric.MType, metric.Delta, metric.Value, metric.Hash)
 	if err != nil {
 		log.Info().Msgf("ошибка записи метрики в базу данных: %s", err)
@@ -55,8 +52,7 @@ func (dr *dbRepository) Set(metric models.Metric) (*models.Metric, error) {
 
 func (dr *dbRepository) Get(mName string, mType string) (*models.Metric, error) {
 	log.Info().Msgf("получение метрики %s. Тип: %s", mName, mType)
-	rows := dr.db.QueryRow(context.Background(),
-		"select id, mtype, delta, value, hash from metrics where id = $1 and mtype = $2", mName, mType)
+	rows := dr.db.QueryRow("select id, mtype, delta, value, hash from metrics where id = $1 and mtype = $2", mName, mType)
 	var m models.Metric
 	err := rows.Scan(&m.ID, &m.MType, &m.Delta, &m.Value, &m.Hash)
 	if err != nil {
@@ -79,7 +75,7 @@ func (dr *dbRepository) Get(mName string, mType string) (*models.Metric, error) 
 func (dr *dbRepository) GetAll() ([]*models.Metric, error) {
 	var metrics []*models.Metric
 
-	rows, err := dr.db.Query(context.Background(), "select id, mtype, delta, value from metrics order by id")
+	rows, err := dr.db.Query("select id, mtype, delta, value from metrics order by id")
 	if err != nil {
 		log.Info().Msgf("ошибка получения метрик из базы данных: %s", err)
 		return nil, err
@@ -104,7 +100,7 @@ func (dr *dbRepository) GetAll() ([]*models.Metric, error) {
 func (dr *dbRepository) Updates(metrics []models.Metric) error {
 	log.Info().Msgf("обновление метрик")
 
-	tx, err := dr.db.Begin(context.Background())
+	tx, err := dr.db.Begin()
 	if err != nil {
 		log.Info().Msgf("ошибка начала транзакции: %s", err)
 		return err
@@ -117,11 +113,11 @@ func (dr *dbRepository) Updates(metrics []models.Metric) error {
 			return err
 		}
 
-		_, err = tx.Exec(context.Background(), "insert into metrics(id, mtype, delta, value, hash) values($1, $2, $3, $4, $5) on conflict (id) do update set delta = $3, value = $4, hash = $5",
+		_, err = tx.Exec("insert into metrics(id, mtype, delta, value, hash) values($1, $2, $3, $4, $5) on conflict (id) do update set delta = $3, value = $4, hash = $5",
 			metrics[i].ID, metrics[i].MType, metrics[i].Delta, metrics[i].Value, metrics[i].Hash)
 		if err != nil {
 			log.Error().Err(err).Msg("ошибка записи метрики в базу данных. Откатываем транзакцию")
-			err = tx.Rollback(context.Background())
+			err = tx.Rollback()
 			if err != nil {
 				log.Error().Err(err).Msg("ошибка отката транзакции")
 				return err
@@ -130,7 +126,7 @@ func (dr *dbRepository) Updates(metrics []models.Metric) error {
 		}
 	}
 
-	err = tx.Commit(context.Background())
+	err = tx.Commit()
 	if err != nil {
 		return err
 	}
@@ -138,10 +134,10 @@ func (dr *dbRepository) Updates(metrics []models.Metric) error {
 }
 
 func (dr *dbRepository) Ping() error {
-	return dr.db.Ping(context.Background())
+	return dr.db.Ping()
 }
 
-func checkHashAndAddDelta(db *pgxpool.Pool, metric *models.Metric, key string) error {
+func checkHashAndAddDelta(db *sql.DB, metric *models.Metric, key string) error {
 	var mHash, s string
 
 	if len(key) > 0 {
@@ -159,7 +155,7 @@ func checkHashAndAddDelta(db *pgxpool.Pool, metric *models.Metric, key string) e
 		}
 
 		if metric.MType == Counter {
-			res := db.QueryRow(context.Background(), "select delta from metrics where id = $1 and mtype = $2", metric.ID, metric.MType)
+			res := db.QueryRow("select delta from metrics where id = $1 and mtype = $2", metric.ID, metric.MType)
 			if res != nil {
 				var delta int64
 				err := res.Scan(&delta)

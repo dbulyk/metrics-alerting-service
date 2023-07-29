@@ -5,6 +5,8 @@ import (
 	"os"
 	"testing"
 
+	"github.com/rs/zerolog/log"
+
 	"github.com/dbulyk/metrics-alerting-service/internal/fileio"
 	"github.com/dbulyk/metrics-alerting-service/internal/models"
 	"github.com/stretchr/testify/require"
@@ -105,7 +107,12 @@ func TestNewConsumer(t *testing.T) {
 
 	consumer, err := fileio.NewConsumer(tmpfile.Name())
 	require.NoError(t, err)
-	defer consumer.Close()
+	defer func(consumer *fileio.Consumer) {
+		err = consumer.Close()
+		if err != nil {
+			log.Error().Err(err).Msg("ошибка закрытия файла")
+		}
+	}(consumer)
 }
 
 func TestConsumer_Read(t *testing.T) {
@@ -148,7 +155,12 @@ func TestConsumer_Read(t *testing.T) {
 
 	consumer, err := fileio.NewConsumer(tmpfile.Name())
 	require.NoError(t, err)
-	defer consumer.Close()
+	defer func(consumer *fileio.Consumer) {
+		err = consumer.Close()
+		if err != nil {
+			log.Error().Err(err).Msg("ошибка закрытия файла")
+		}
+	}(consumer)
 
 	mem1 := NewFileRepository()
 	metrics, err := consumer.Read()
@@ -186,7 +198,12 @@ func TestRestoreMetricsFromFile(t *testing.T) {
 
 	consumer, err := fileio.NewConsumer(tmpfile.Name())
 	require.NoError(t, err)
-	defer consumer.Close()
+	defer func(consumer *fileio.Consumer) {
+		err = consumer.Close()
+		if err != nil {
+			log.Error().Err(err).Msg("ошибка закрытия файла")
+		}
+	}(consumer)
 
 	v := 123.15
 	_, err = mem.Set(models.Metric{
@@ -210,7 +227,12 @@ func TestRestoreMetricsFromFile(t *testing.T) {
 
 	producer, err := fileio.NewProducer(tmpfile.Name())
 	require.NoError(t, err)
-	defer producer.Close()
+	defer func(producer *fileio.Producer) {
+		err = producer.Close()
+		if err != nil {
+			log.Error().Err(err).Msg("ошибка закрытия файла")
+		}
+	}(producer)
 
 	err = producer.Save(mem, tmpfile.Name())
 	require.NoError(t, err)
