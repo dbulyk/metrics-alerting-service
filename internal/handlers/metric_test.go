@@ -209,12 +209,7 @@ func TestHandler_UpdateWithText(t *testing.T) {
 
 			resp, err := http.DefaultClient.Do(req)
 			require.NoError(t, err)
-			defer func(Body io.ReadCloser) {
-				err = Body.Close()
-				if err != nil {
-					log.Error().Err(err).Msg("ошибка закрытия тела ответа")
-				}
-			}(resp.Body)
+			defer resp.Body.Close()
 
 			assert.Equal(t, tc.statusCode, resp.StatusCode)
 
@@ -298,12 +293,7 @@ func TestHandler_UpdateWithJSON(t *testing.T) {
 
 			resp, err := http.DefaultClient.Do(req)
 			require.NoError(t, err)
-			defer func(Body io.ReadCloser) {
-				err = Body.Close()
-				if err != nil {
-					log.Error().Err(err).Msg("ошибка закрытия тела ответа")
-				}
-			}(resp.Body)
+			defer resp.Body.Close()
 
 			assert.Equal(t, tc.statusCode, resp.StatusCode)
 
