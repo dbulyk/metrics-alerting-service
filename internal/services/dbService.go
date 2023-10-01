@@ -161,6 +161,7 @@ func checkHashAndAddDelta(db *sql.DB, metric *models.Metric, key string) error {
 			if res != nil {
 				var delta int64
 				err := res.Scan(&delta)
+				log.Info().Msgf("дельта метрики %s. Тип: %s, значение: %d", metric.ID, metric.MType, delta)
 				if err == nil {
 					del := delta + *metric.Delta
 					metric.Delta = &del
@@ -171,6 +172,7 @@ func checkHashAndAddDelta(db *sql.DB, metric *models.Metric, key string) error {
 				} else if !errors.Is(err, pgx.ErrNoRows) {
 					return err
 				}
+				log.Info().Msgf("дельта метрики %s. Тип: %s, значение: %d", metric.ID, metric.MType, *metric.Delta)
 			}
 		}
 	}
