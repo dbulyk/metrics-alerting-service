@@ -43,9 +43,10 @@ func (dr *dbRepository) Set(metric models.Metric) (*models.Metric, error) {
 	_, err = dr.db.Exec("insert into metrics(id, mtype, delta, value, hash) values($1, $2, $3, $4, $5) on conflict (id) do update set delta = $3, value = $4, hash = $5",
 		metric.ID, metric.MType, metric.Delta, metric.Value, metric.Hash)
 	if err != nil {
-		log.Info().Msgf("ошибка записи метрики в базу данных: %s", err)
+		log.Error().Msgf("ошибка записи метрики в базу данных: %s", err)
 		return nil, err
 	}
+	log.Info().Msg("метрика добавлена")
 	return &metric, nil
 }
 
@@ -55,7 +56,7 @@ func (dr *dbRepository) Get(mName string, mType string) (*models.Metric, error) 
 	var m models.Metric
 	err := rows.Scan(&m.ID, &m.MType, &m.Delta, &m.Value, &m.Hash)
 	if err != nil {
-		log.Info().Msgf("ошибка сканирования метрики из базы данных: %s", err)
+		log.Error().Msgf("ошибка сканирования метрики из базы данных: %s", err)
 		return nil, ErrInvalidMetric
 	}
 
