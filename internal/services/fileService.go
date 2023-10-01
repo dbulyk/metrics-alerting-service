@@ -56,7 +56,7 @@ func (fr *fileRepository) Set(metric models.Metric) (*models.Metric, error) {
 	fr.Lock()
 	defer fr.Unlock()
 
-	m, err := addToStorage(fr.metrics, metric)
+	m, err := addToStorage(&fr.metrics, metric)
 	if err != nil {
 		log.Error().Err(err).Msgf("произошла ошибка сохранения метрики %s, она не будет добавлена.", metric.ID)
 		return nil, err
@@ -95,7 +95,7 @@ func (fr *fileRepository) Updates(metrics []models.Metric) error {
 	defer fr.Unlock()
 
 	for _, metric := range metrics {
-		_, err := addToStorage(fr.metrics, metric)
+		_, err := addToStorage(&fr.metrics, metric)
 		if err != nil {
 			log.Error().Err(err).Msgf("произошла ошибка сохранения метрики %s, она не будет добавлена. "+
 				"Ошибка: %s", metric.ID, err)
@@ -121,7 +121,7 @@ func (fr *fileRepository) Ping() error {
 	return nil
 }
 
-func addToStorage(metrics []*models.Metric, metric models.Metric) ([]*models.Metric, error) {
+func addToStorage(metrics *[]*models.Metric, metric models.Metric) ([]*models.Metric, error) {
 	if metric.MType != Counter && metric.MType != Gauge {
 		log.Error().Msgf("типа метрики %s не существует", metric.MType)
 		return nil, ErrInvalidMetricType
@@ -145,7 +145,7 @@ func addToStorage(metrics []*models.Metric, metric models.Metric) ([]*models.Met
 	}
 
 	isNotFound := true
-	for _, m := range metrics {
+	for _, m := range *metrics {
 		if m.ID == metric.ID && m.MType == metric.MType {
 			isNotFound = false
 			if m.MType == Counter {
@@ -163,8 +163,8 @@ func addToStorage(metrics []*models.Metric, metric models.Metric) ([]*models.Met
 	}
 
 	if isNotFound {
-		metrics = append(metrics, &metric)
+		*metrics = append(*metrics, &metric)
 	}
 
-	return metrics, nil
+	return *metrics, nil
 }
