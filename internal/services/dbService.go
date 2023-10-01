@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"github.com/jackc/pgx/v5"
 
 	"github.com/dbulyk/metrics-alerting-service/internal/models"
 	"github.com/dbulyk/metrics-alerting-service/internal/storages"
@@ -169,7 +168,7 @@ func checkHashAndAddDelta(db *sql.DB, metric *models.Metric, key string) error {
 					s = fmt.Sprintf("%s:%s:%d", metric.ID, metric.MType, *metric.Delta)
 					metric.Hash = utils.Hash(s, key)
 				}
-			} else if !errors.Is(err, pgx.ErrNoRows) {
+			} else if !errors.Is(err, sql.ErrNoRows) {
 				log.Error().Msgf("ошибка сканирования метрики из базы данных: %s", err)
 				return err
 			}
