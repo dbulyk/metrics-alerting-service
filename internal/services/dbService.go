@@ -80,6 +80,8 @@ func (dr *dbRepository) GetAll() ([]*models.Metric, error) {
 		log.Info().Msgf("ошибка получения метрик из базы данных: %s", err)
 		return nil, err
 	}
+	defer rows.Close()
+
 	for rows.Next() {
 		var m models.Metric
 		err = rows.Scan(&m.ID, &m.MType, &m.Delta, &m.Value)
