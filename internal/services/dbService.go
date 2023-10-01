@@ -157,11 +157,11 @@ func checkHashAndAddDelta(db *sql.DB, metric *models.Metric, key string) error {
 		}
 
 		if metric.MType == Counter {
+			log.Info().Msgf("тип метрики %s. Тип: %s, значение: %d", metric.ID, metric.MType, *metric.Delta)
 			res := db.QueryRow("select delta from metrics where id = $1 and mtype = $2", metric.ID, metric.MType)
 			if res != nil {
 				var delta int64
 				err := res.Scan(&delta)
-				log.Info().Msgf("дельта метрики %s. Тип: %s, значение: %d", metric.ID, metric.MType, delta)
 				if err == nil {
 					del := delta + *metric.Delta
 					metric.Delta = &del
