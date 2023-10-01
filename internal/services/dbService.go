@@ -5,11 +5,10 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"github.com/jackc/pgx/v5"
 
 	"github.com/dbulyk/metrics-alerting-service/internal/models"
 	"github.com/dbulyk/metrics-alerting-service/internal/storages"
-
-	"github.com/jackc/pgx/v5"
 
 	"github.com/dbulyk/metrics-alerting-service/config"
 	"github.com/dbulyk/metrics-alerting-service/internal/utils"
@@ -155,25 +154,25 @@ func checkHashAndAddDelta(db *sql.DB, metric *models.Metric, key string) error {
 			log.Error().Msgf("входящий хэш не совпадает с вычисленным. Метрика %s не будет добавлена", metric.ID)
 			return ErrInvalidHash
 		}
+	}
 
-		if metric.MType == Counter {
-			log.Info().Msgf("тип метрики %s. Тип: %s, значение: %d", metric.ID, metric.MType, *metric.Delta)
-			res := db.QueryRow("select delta from metrics where id = $1 and mtype = $2", metric.ID, metric.MType)
-			if res != nil {
-				var delta int64
-				err := res.Scan(&delta)
-				if err == nil {
-					del := delta + *metric.Delta
-					metric.Delta = &del
-					if len(key) > 0 {
-						s = fmt.Sprintf("%s:%s:%d", metric.ID, metric.MType, *metric.Delta)
-						metric.Hash = utils.Hash(s, key)
-					}
-				} else if !errors.Is(err, pgx.ErrNoRows) {
-					return err
+	if metric.MType == Counter {
+		log.Info().Msgf("тип метрики %s. Тип: %s, значение: %d", metric.ID, metric.MType, *metric.Delta)
+		res := db.QueryRow("select delta from metrics where id = $1 and mtype = $2", metric.ID, metric.MType)
+		if res != nil {
+			var delta int64
+			err := res.Scan(&delta)
+			if err == nil {
+				del := delta + *metric.Delta
+				metric.Delta = &del
+				if len(key) > 0 {
+					s = fmt.Sprintf("%s:%s:%d", metric.ID, metric.MType, *metric.Delta)
+					metric.Hash = utils.Hash(s, key)
 				}
-				log.Info().Msgf("дельта метрики %s. Тип: %s, значение: %d", metric.ID, metric.MType, *metric.Delta)
+			} else if !errors.Is(err, pgx.ErrNoRows) {
+				return err
 			}
+			log.Info().Msgf("дельта метрики %s. Тип: %s, значение: %d", metric.ID, metric.MType, *metric.Delta)
 		}
 	}
 	return nil
