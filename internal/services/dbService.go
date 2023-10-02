@@ -31,8 +31,6 @@ func NewDBRepository(db *sql.DB) storages.Repository {
 }
 
 func (dr *dbRepository) Set(metric models.Metric) (*models.Metric, error) {
-	log.Info().Msgf("добавление метрики %s. Тип: %s, значение: %v, дельта: %v, хэш: %s", metric.ID, metric.MType, metric.Value, metric.Delta, metric.Hash)
-
 	key := config.GetKey()
 	err := checkHashAndAddDelta(dr.db, &metric, key)
 	if err != nil {
@@ -45,12 +43,10 @@ func (dr *dbRepository) Set(metric models.Metric) (*models.Metric, error) {
 		log.Error().Msgf("ошибка записи метрики в базу данных: %s", err)
 		return nil, err
 	}
-	log.Info().Msg("метрика добавлена")
 	return &metric, nil
 }
 
 func (dr *dbRepository) Get(mName string, mType string) (*models.Metric, error) {
-	log.Info().Msgf("получение метрики %s. Тип: %s", mName, mType)
 	rows := dr.db.QueryRow("select id, mtype, delta, value, hash from metrics where id = $1 and mtype = $2", mName, mType)
 	var m models.Metric
 	err := rows.Scan(&m.ID, &m.MType, &m.Delta, &m.Value, &m.Hash)
@@ -67,7 +63,6 @@ func (dr *dbRepository) Get(mName string, mType string) (*models.Metric, error) 
 		}
 	}
 
-	log.Info().Msgf("получена метрика %s. Тип: %s, значение: %v, дельта: %v, хэш: %s", m.ID, m.MType, m.Value, m.Delta, m.Hash)
 	return &m, nil
 }
 
@@ -99,8 +94,6 @@ func (dr *dbRepository) GetAll() ([]*models.Metric, error) {
 }
 
 func (dr *dbRepository) Updates(metrics []models.Metric) error {
-	log.Info().Msgf("обновление метрик")
-
 	tx, err := dr.db.Begin()
 	if err != nil {
 		log.Info().Msgf("ошибка начала транзакции: %s", err)
@@ -117,7 +110,7 @@ func (dr *dbRepository) Updates(metrics []models.Metric) error {
 		_, err = tx.Exec("insert into metrics(id, mtype, delta, value, hash) values($1, $2, $3, $4, $5) on conflict (id) do update set delta = $3, value = $4, hash = $5",
 			metrics[i].ID, metrics[i].MType, metrics[i].Delta, metrics[i].Value, metrics[i].Hash)
 		if err != nil {
-			log.Error().Err(err).Msg("ошибка записи метрики в базу данных. Откатываем транзакцию")
+			log.Error().Err(err).Msgf("ошибка записи метрики в базу данных. Откатываем транзакцию. Ошибка: %s", err)
 			err = tx.Rollback()
 			if err != nil {
 				log.Error().Err(err).Msg("ошибка отката транзакции")
@@ -129,6 +122,7 @@ func (dr *dbRepository) Updates(metrics []models.Metric) error {
 
 	err = tx.Commit()
 	if err != nil {
+		log.Error().Err(err).Msgf("ошибка коммита транзакции. Ошибка: %s", err)
 		return err
 	}
 	return nil
