@@ -250,7 +250,8 @@ func (h *handler) Updates(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := h.repository.Updates(metrics)
+	var metricsResp []models.Metric
+	metricsResp, err := h.repository.Updates(metrics)
 	if err != nil {
 		log.Error().Err(err).Msg("ошибка обновления метрик")
 		w.WriteHeader(http.StatusBadRequest)
@@ -258,6 +259,11 @@ func (h *handler) Updates(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
+	if err = json.NewEncoder(w).Encode(metricsResp); err != nil {
+		log.Error().Err(err).Msg("ошибка кодирования JSON")
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
 	w.WriteHeader(http.StatusOK)
 }
 

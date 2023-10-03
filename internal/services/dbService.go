@@ -93,18 +93,18 @@ func (dr *dbRepository) GetAll() ([]*models.Metric, error) {
 	return metrics, nil
 }
 
-func (dr *dbRepository) Updates(metrics []models.Metric) error {
+func (dr *dbRepository) Updates(metrics []models.Metric) ([]models.Metric, error) {
 	key := config.GetKey()
 	for i := range metrics {
 		err := checkHashAndAddDelta(dr.db, &metrics[i], key)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		tx, err := dr.db.Begin()
 		if err != nil {
 			log.Error().Err(err).Msg("ошибка открытия транзакции: %")
-			return err
+			return nil, err
 		}
 		_, err = tx.Exec("insert into metrics(id, mtype, delta, value, hash) values($1, $2, $3, $4, $5) on conflict (id) do update set delta = $3, value = $4, hash = $5",
 			metrics[i].ID, metrics[i].MType, metrics[i].Delta, metrics[i].Value, metrics[i].Hash)
@@ -113,7 +113,7 @@ func (dr *dbRepository) Updates(metrics []models.Metric) error {
 			err = tx.Rollback()
 			if err != nil {
 				log.Error().Err(err).Msg("ошибка отката транзакции")
-				return err
+				return nil, err
 			}
 			continue
 		}
@@ -121,11 +121,11 @@ func (dr *dbRepository) Updates(metrics []models.Metric) error {
 		err = tx.Commit()
 		if err != nil {
 			log.Error().Err(err).Msg("ошибка коммита транзакции")
-			return err
+			return nil, err
 		}
 	}
 
-	return nil
+	return metrics, nil
 }
 
 func (dr *dbRepository) Ping() error {

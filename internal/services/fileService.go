@@ -90,7 +90,7 @@ func (fr *fileRepository) Get(id string, mType string) (*models.Metric, error) {
 	return nil, ErrInvalidMetric
 }
 
-func (fr *fileRepository) Updates(metrics []models.Metric) error {
+func (fr *fileRepository) Updates(metrics []models.Metric) ([]models.Metric, error) {
 	fr.Lock()
 	defer fr.Unlock()
 
@@ -106,15 +106,16 @@ func (fr *fileRepository) Updates(metrics []models.Metric) error {
 	if len(fr.storeFile) != 0 && fr.storeInterval == 0 {
 		producer, err := fileio.NewProducer(fr.storeFile)
 		if err != nil {
-			return err
+			log.Error().Err(err).Msg("ошибка создания producer")
+			return nil, err
 		}
 		err = producer.Save(fr, fr.storeFile)
 		if err != nil {
 			log.Error().Err(err).Msg("ошибка сохранения метрики в файл")
-			return err
+			return nil, err
 		}
 	}
-	return nil
+	return metrics, nil
 }
 
 func (fr *fileRepository) Ping() error {
