@@ -40,7 +40,7 @@ func (dr *dbRepository) Set(metric models.Metric) (*models.Metric, error) {
 	_, err = dr.db.Exec("insert into metrics(id, mtype, delta, value, hash) values($1, $2, $3, $4, $5) on conflict (id) do update set delta = $3, value = $4, hash = $5",
 		metric.ID, metric.MType, metric.Delta, metric.Value, metric.Hash)
 	if err != nil {
-		log.Error().Msgf("ошибка записи метрики в базу данных: %s", err)
+		log.Error().Err(err).Msgf("ошибка записи метрики в базу данных")
 		return nil, err
 	}
 	return &metric, nil
@@ -51,7 +51,7 @@ func (dr *dbRepository) Get(mName string, mType string) (*models.Metric, error) 
 	var m models.Metric
 	err := rows.Scan(&m.ID, &m.MType, &m.Delta, &m.Value, &m.Hash)
 	if err != nil {
-		log.Error().Msgf("ошибка сканирования метрики из базы данных: %s", err)
+		log.Error().Err(err).Msg("ошибка сканирования метрики из базы данных")
 		return nil, ErrInvalidMetric
 	}
 
@@ -71,7 +71,7 @@ func (dr *dbRepository) GetAll() ([]*models.Metric, error) {
 
 	rows, err := dr.db.Query("select id, mtype, delta, value from metrics order by id")
 	if err != nil {
-		log.Info().Msgf("ошибка получения метрик из базы данных: %s", err)
+		log.Error().Err(err).Msg("ошибка получения метрик из базы данных")
 		return nil, err
 	}
 	defer rows.Close()
@@ -80,7 +80,7 @@ func (dr *dbRepository) GetAll() ([]*models.Metric, error) {
 		var m models.Metric
 		err = rows.Scan(&m.ID, &m.MType, &m.Delta, &m.Value)
 		if err != nil {
-			log.Info().Msgf("ошибка сканирования метрик из базы данных: %s", err)
+			log.Error().Err(err).Msg("ошибка сканирования метрик из базы данных")
 			return nil, err
 		}
 		metrics = append(metrics, &m)
@@ -94,37 +94,37 @@ func (dr *dbRepository) GetAll() ([]*models.Metric, error) {
 }
 
 func (dr *dbRepository) Updates(metrics []models.Metric) error {
-	tx, err := dr.db.Begin()
-	if err != nil {
-		log.Info().Msgf("ошибка начала транзакции: %s", err)
-		return err
-	}
-
 	key := config.GetKey()
 	for i := range metrics {
-		err = checkHashAndAddDelta(dr.db, &metrics[i], key)
+		err := checkHashAndAddDelta(dr.db, &metrics[i], key)
 		if err != nil {
 			return err
 		}
 
+		tx, err := dr.db.Begin()
+		if err != nil {
+			log.Error().Err(err).Msg("ошибка открытия транзакции: %")
+			return err
+		}
 		_, err = tx.Exec("insert into metrics(id, mtype, delta, value, hash) values($1, $2, $3, $4, $5) on conflict (id) do update set delta = $3, value = $4, hash = $5",
 			metrics[i].ID, metrics[i].MType, metrics[i].Delta, metrics[i].Value, metrics[i].Hash)
 		if err != nil {
-			log.Error().Err(err).Msgf("ошибка записи метрики в базу данных. Откатываем транзакцию. Ошибка: %s", err)
+			log.Error().Err(err).Msg("ошибка записи метрики в базу данных. Откатываем транзакцию")
 			err = tx.Rollback()
 			if err != nil {
 				log.Error().Err(err).Msg("ошибка отката транзакции")
 				return err
 			}
+			continue
+		}
+
+		err = tx.Commit()
+		if err != nil {
+			log.Error().Err(err).Msg("ошибка коммита транзакции")
 			return err
 		}
 	}
 
-	err = tx.Commit()
-	if err != nil {
-		log.Error().Err(err).Msgf("ошибка коммита транзакции. Ошибка: %s", err)
-		return err
-	}
 	return nil
 }
 
@@ -163,7 +163,7 @@ func checkHashAndAddDelta(db *sql.DB, metric *models.Metric, key string) error {
 					metric.Hash = utils.Hash(s, key)
 				}
 			} else if !errors.Is(err, sql.ErrNoRows) {
-				log.Error().Msgf("ошибка сканирования метрики из базы данных: %s", err)
+				log.Error().Err(err).Msg("ошибка сканирования метрики из базы данных")
 				return err
 			}
 		}
