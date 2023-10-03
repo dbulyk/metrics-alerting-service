@@ -97,8 +97,7 @@ func (fr *fileRepository) Updates(metrics []models.Metric) ([]models.Metric, err
 	for _, metric := range metrics {
 		_, err := addToStorage(&fr.metrics, metric)
 		if err != nil {
-			log.Error().Err(err).Msgf("произошла ошибка сохранения метрики %s, она не будет добавлена. "+
-				"Ошибка: %s", metric.ID, err)
+			log.Error().Err(err).Msgf("произошла ошибка сохранения метрики %s, она не будет добавлена", metric.ID)
 			continue
 		}
 	}

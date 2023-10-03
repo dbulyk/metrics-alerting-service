@@ -34,13 +34,14 @@ func (dr *dbRepository) Set(metric models.Metric) (*models.Metric, error) {
 	key := config.GetKey()
 	err := checkHashAndAddDelta(dr.db, &metric, key)
 	if err != nil {
+		log.Error().Err(err).Msg("ошибка проверки хэша и добавления дельты")
 		return nil, err
 	}
 
 	_, err = dr.db.Exec("insert into metrics(id, mtype, delta, value, hash) values($1, $2, $3, $4, $5) on conflict (id) do update set delta = $3, value = $4, hash = $5",
 		metric.ID, metric.MType, metric.Delta, metric.Value, metric.Hash)
 	if err != nil {
-		log.Error().Err(err).Msgf("ошибка записи метрики в базу данных")
+		log.Error().Err(err).Msg("ошибка записи метрики в базу данных")
 		return nil, err
 	}
 	return &metric, nil
@@ -87,6 +88,7 @@ func (dr *dbRepository) GetAll() ([]*models.Metric, error) {
 	}
 
 	if err = rows.Err(); err != nil {
+		log.Error().Err(err).Msg("ошибка получения метрик из базы данных")
 		return nil, err
 	}
 
@@ -98,6 +100,7 @@ func (dr *dbRepository) Updates(metrics []models.Metric) ([]models.Metric, error
 	for i := range metrics {
 		err := checkHashAndAddDelta(dr.db, &metrics[i], key)
 		if err != nil {
+			log.Error().Err(err).Msg("ошибка проверки хэша и добавления дельты")
 			return nil, err
 		}
 
