@@ -14,9 +14,8 @@ import (
 
 func TestSet(t *testing.T) {
 	db, mock, err := sqlmock.New()
-	assert.NoError(t, err)
-
 	defer db.Close()
+	assert.NoError(t, err)
 
 	del := int64(1)
 	metric := models.Metric{ID: "testCounter", MType: Counter, Delta: &del}
@@ -41,8 +40,9 @@ func TestSet(t *testing.T) {
 }
 
 func TestCheckHashAndAddDelta(t *testing.T) {
-	db, mock, _ := sqlmock.New()
+	db, mock, err := sqlmock.New()
 	defer db.Close()
+	assert.NoError(t, err)
 
 	delta := int64(5)
 	metric := &models.Metric{
@@ -58,7 +58,7 @@ func TestCheckHashAndAddDelta(t *testing.T) {
 
 	mock.ExpectQuery("select (.+)").WithArgs(metric.ID, metric.MType).WillReturnRows(rows)
 
-	err := checkHashAndAddDelta(db, metric, "")
+	err = checkHashAndAddDelta(db, metric, "")
 	assert.Nil(t, err)
 
 	assert.Equal(t, int64(5), *metric.Delta)
@@ -92,7 +92,9 @@ func TestCheckHashAndAddDelta(t *testing.T) {
 }
 
 func TestGet(t *testing.T) {
-	db, mock, _ := sqlmock.New()
+	db, mock, err := sqlmock.New()
+	defer db.Close()
+	assert.NoError(t, err)
 	dr := &dbRepository{db: db}
 
 	del := int64(123)
@@ -134,8 +136,8 @@ func TestGet(t *testing.T) {
 
 func TestDBRepository_GetAll(t *testing.T) {
 	db, mock, err := sqlmock.New()
-	assert.NoError(t, err)
 	defer db.Close()
+	assert.NoError(t, err)
 
 	del := int64(12)
 	val := 2.2
