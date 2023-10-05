@@ -14,8 +14,8 @@ import (
 
 func TestSet(t *testing.T) {
 	db, mock, err := sqlmock.New()
-	defer db.Close()
 	assert.NoError(t, err)
+	defer db.Close()
 
 	del := int64(1)
 	metric := models.Metric{ID: "testCounter", MType: Counter, Delta: &del}
@@ -41,8 +41,8 @@ func TestSet(t *testing.T) {
 
 func TestCheckHashAndAddDelta(t *testing.T) {
 	db, mock, err := sqlmock.New()
-	defer db.Close()
 	assert.NoError(t, err)
+	defer db.Close()
 
 	delta := int64(5)
 	metric := &models.Metric{
@@ -93,8 +93,8 @@ func TestCheckHashAndAddDelta(t *testing.T) {
 
 func TestGet(t *testing.T) {
 	db, mock, err := sqlmock.New()
-	defer db.Close()
 	assert.NoError(t, err)
+	defer db.Close()
 	dr := &dbRepository{db: db}
 
 	del := int64(123)
@@ -122,22 +122,15 @@ func TestGet(t *testing.T) {
 	assert.Equal(t, mockMetric.MType, m.MType)
 	assert.Equal(t, mockMetric.Delta, m.Delta)
 
-	mockMetricWrong := &models.Metric{
-		ID:    "testCounterWrong",
-		MType: Counter,
-		Delta: &del,
-		Value: nil,
-	}
-
 	mock.ExpectQuery("^select (.+) from metrics").WillReturnError(errors.New("mock error"))
-	_, err = dr.Get(mockMetricWrong.ID, mockMetricWrong.MType)
+	_, err = dr.Get("testCounterWrong", Counter)
 	assert.Error(t, err, ErrInvalidMetric)
 }
 
 func TestDBRepository_GetAll(t *testing.T) {
 	db, mock, err := sqlmock.New()
-	defer db.Close()
 	assert.NoError(t, err)
+	defer db.Close()
 
 	del := int64(12)
 	val := 2.2
