@@ -1,7 +1,10 @@
 package main
 
 import (
+	"os"
+	"os/signal"
 	"sync/atomic"
+	"syscall"
 	"testing"
 	"time"
 
@@ -54,13 +57,14 @@ func TestCollectAndSendMetrics(t *testing.T) {
 	httpmock.RegisterResponder("POST", "http://localhost:8080/updates/",
 		httpmock.NewStringResponder(200, ""))
 
-	done := make(chan bool)
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
-		collectAndSendMetrics(done)
+		collectAndSendMetrics(sigs)
 	}()
 
 	time.Sleep(time.Second * 15)
-	done <- true
+	sigs <- syscall.SIGINT
 
 	info := httpmock.GetCallCountInfo()
 	if info["POST http://localhost:8080/updates/"] == 0 {
