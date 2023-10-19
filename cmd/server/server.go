@@ -52,7 +52,7 @@ func main() {
 			}
 		}(db)
 
-		metrics = services.NewDBRepository(db)
+		metrics = services.NewDBRepository(db, cfg.DatabaseDsn)
 	} else {
 		metrics = services.NewFileRepository()
 	}

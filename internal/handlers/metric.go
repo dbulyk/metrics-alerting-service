@@ -14,7 +14,6 @@ import (
 	"github.com/dbulyk/metrics-alerting-service/internal/models"
 	"github.com/dbulyk/metrics-alerting-service/internal/services"
 	"github.com/dbulyk/metrics-alerting-service/internal/storages"
-
 	"github.com/go-chi/chi/v5"
 	"github.com/rs/zerolog/log"
 )

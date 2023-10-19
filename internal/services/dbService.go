@@ -6,9 +6,11 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-
 	"github.com/dbulyk/metrics-alerting-service/internal/models"
 	"github.com/dbulyk/metrics-alerting-service/internal/storages"
+	"github.com/golang-migrate/migrate/v4"
+	_ "github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
 
 	"github.com/dbulyk/metrics-alerting-service/config"
 	"github.com/dbulyk/metrics-alerting-service/internal/utils"
@@ -20,10 +22,15 @@ type dbRepository struct {
 	db *sql.DB
 }
 
-func NewDBRepository(db *sql.DB) storages.Repository {
-	_, err := db.Exec("create table if not exists metrics (id text primary key, mtype text not null, delta bigint, value double precision, hash text)")
+func NewDBRepository(db *sql.DB, dsn string) storages.Repository {
+	m, err := migrate.New(
+		"file://db/migrations",
+		dsn)
 	if err != nil {
-		log.Panic().Timestamp().Err(err).Msg("metrics table creation error")
+		log.Panic().Err(err).Msg("migrate creation error")
+	}
+	if err = m.Up(); err != nil {
+		log.Panic().Err(err).Msg("migrate up error")
 	}
 
 	return &dbRepository{
