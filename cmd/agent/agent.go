@@ -3,18 +3,24 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"math"
 	"math/rand"
 	"net/http"
+	"os"
+	"os/signal"
 	"runtime"
 	"sync/atomic"
+	"syscall"
 	"time"
 
-	"github.com/dbulyk/metrics-alerting-service/config"
-
 	"github.com/dbulyk/metrics-alerting-service/internal/models"
+
+	"github.com/dbulyk/metrics-alerting-service/internal/utils"
+
+	"github.com/dbulyk/metrics-alerting-service/config"
 )
 
 var (
@@ -22,21 +28,19 @@ var (
 )
 
 func main() {
-	var done = make(chan bool)
-	collectAndSendMetrics(done)
-	done <- true
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+	collectAndSendMetrics(sigs)
 }
 
-func collectAndSendMetrics(done chan bool) {
+func collectAndSendMetrics(sigs chan os.Signal) {
 	cfg, err := config.NewAgentCfg()
 	if err != nil {
-		log.Fatalf("ошибка парсинга конфига: %v", err)
+		log.Fatalf("config parsing error: %v", err)
 	}
 
 	var (
-		metrics   = make([]models.Metrics, 0, 50)
-		client    = &http.Client{}
-		address   = cfg.Address
+		metrics   = make([]models.Metric, 0, 50)
 		pollCount atomic.Int64
 	)
 
@@ -51,70 +55,84 @@ func collectAndSendMetrics(done chan bool) {
 	for {
 		select {
 		case <-pollTicker.C:
-			log.Print("Сбор метрик")
+			log.Print("metrics collection")
 			metrics = collectMetrics(&pollCount)
 			pollCount.Add(1)
-			log.Print("Сбор метрик завершен")
+			log.Print("metrics collection is complete")
 		case <-reportTicker.C:
-			log.Print("Отправка метрик")
-			isError := false
-			for _, m := range metrics {
-				request, err := createRequestToMetricsUpdate(m, address)
-				if err != nil {
-					isError = true
-					log.Printf("возникла ошибка при создании запроса. Ошибка: %s", err.Error())
-					continue
-				}
+			log.Print("sending metrics")
 
-				response, err := client.Do(request)
-				if err != nil {
-					isError = true
-					log.Printf("возникла ошибка при отправке запроса. Ошибка: %s", err.Error())
-					continue
-				}
-
-				_, err = io.ReadAll(response.Body)
-				if err != nil {
-					isError = true
-					log.Printf("возникла ошибка при чтении ответа. Ошибка: %s", err.Error())
-				}
-				err = response.Body.Close()
-				if err != nil {
-					return
-				}
+			err = sendRequestToMetricsUpdate(metrics, cfg.Address, cfg.Key)
+			if err != nil {
+				log.Printf("An error occurred while creating a query. Error: %s", err.Error())
+				continue
 			}
-
-			if !isError {
-				log.Print("Отправка метрик завершена")
-				pollCount.Swap(1)
-			}
-		case <-done:
+			log.Print("metrics submission complete")
+			pollCount.Swap(1)
+		case <-sigs:
+			log.Print("a shutdown signal is received")
 			return
 		}
 	}
 }
 
-func createRequestToMetricsUpdate(metrics models.Metrics, address string) (*http.Request, error) {
-	jsonData, err := json.Marshal(metrics)
-	if err != nil {
-		return nil, err
+func sendRequestToMetricsUpdate(metrics []models.Metric, address string, key string) error {
+	if len(metrics) == 0 {
+		log.Print("an empty collection came in")
+		return nil
 	}
 
-	request, err := http.NewRequest(http.MethodPost, "http://"+address+"/update/", bytes.NewBuffer(jsonData))
+	if len(key) != 0 {
+		for i := range metrics {
+			switch metrics[i].MType {
+			case "gauge":
+				metrics[i].Hash = utils.Hash(fmt.Sprintf("%s:%s:%f", metrics[i].ID, metrics[i].MType, *metrics[i].Value), key)
+			case "counter":
+				metrics[i].Hash = utils.Hash(fmt.Sprintf("%s:%s:%d", metrics[i].ID, metrics[i].MType, *metrics[i].Delta), key)
+			}
+		}
+	}
+
+	jsonData, err := json.Marshal(metrics)
 	if err != nil {
-		return nil, err
+		return err
+	}
+
+	request, err := http.NewRequest(http.MethodPost, "http://"+address+"/updates/", bytes.NewBuffer(jsonData))
+	if err != nil {
+		log.Printf("An error occurred while creating a query. Error: %s", err.Error())
+		return err
 	}
 	request.Header.Set("Content-Type", "application/json")
 
-	return request, nil
+	client := &http.Client{}
+	response, err := client.Do(request)
+	if err != nil {
+		log.Printf("An error occurred while sending a request. Error: %s", err.Error())
+		return err
+	}
+
+	_, err = io.ReadAll(response.Body)
+	if err != nil {
+		log.Printf("An error occurred while reading the response. Error: %s", err.Error())
+		return err
+	}
+
+	err = response.Body.Close()
+	if err != nil {
+		log.Printf("An error occurred when closing the response body. Error: %s", err.Error())
+		return err
+	}
+
+	return nil
 }
 
-func collectMetrics(count *atomic.Int64) (metrics []models.Metrics) {
+func collectMetrics(count *atomic.Int64) (metrics []models.Metric) {
 	runtime.ReadMemStats(&rtm)
 	randomValue := rand.Float64()
 	countValue := count.Load()
 
-	return []models.Metrics{
+	return []models.Metric{
 		{
 			ID:    "Alloc",
 			MType: "gauge",

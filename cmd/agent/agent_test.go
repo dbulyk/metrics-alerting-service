@@ -1,32 +1,44 @@
 package main
 
 import (
-	"net/http"
+	"os"
+	"os/signal"
 	"sync/atomic"
+	"syscall"
 	"testing"
 	"time"
 
 	"github.com/dbulyk/metrics-alerting-service/internal/models"
+
 	"github.com/jarcoal/httpmock"
 	"github.com/stretchr/testify/assert"
 )
 
-func TestCreateRequestToMetricsUpdate(t *testing.T) {
-	val := 8.18
-	metric := models.Metrics{
-		ID:    "test",
-		MType: "gauge",
-		Delta: nil,
-		Value: &val,
-	}
-	request, err := createRequestToMetricsUpdate(metric, "localhost:8080")
+func TestSendRequestToMetricsUpdate(t *testing.T) {
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
 
-	expectedEndpoint := "http://localhost:8080/update/"
-	assert.NoErrorf(t, err, "функция не должна была вернуть ошибку, но вернула %s", err)
-	assert.Equalf(t, expectedEndpoint, request.URL.String(), "ожидался эндпоинт %s, получен %s", expectedEndpoint, request.URL.String())
-	assert.Equalf(t, http.MethodPost, request.Method, "ожидаемый метод отправки: %s, получен %s", http.MethodPost, request.Method)
-	assert.Equalf(t, "application/json", request.Header.Get("Content-Type"), "ожидаемый Content-Type: %s, получен %s", "application/json", request.Header.Get("Content-Type"))
+	httpmock.RegisterResponder("POST", "http://localhost:8080/updates/",
+		httpmock.NewStringResponder(200, ""))
+
+	metrics := []models.Metric{
+		{
+			ID:    "test",
+			MType: "gauge",
+			Value: new(float64),
+			Delta: new(int64),
+		},
+	}
+
+	err := sendRequestToMetricsUpdate(metrics, "localhost:8080", "test_key")
+	assert.NoError(t, err)
+
+	info := httpmock.GetCallCountInfo()
+	if info["POST http://localhost:8080/updates/"] == 0 {
+		t.Error("Ожидался запрос на сервер, но он не был получен")
+	}
 }
+
 func TestCollectMetrics(t *testing.T) {
 	f := atomic.Int64{}
 	metrics := collectMetrics(&f)
@@ -42,19 +54,20 @@ func TestCollectAndSendMetrics(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 
-	httpmock.RegisterResponder("POST", "http://localhost:8080/update/",
+	httpmock.RegisterResponder("POST", "http://localhost:8080/updates/",
 		httpmock.NewStringResponder(200, ""))
 
-	done := make(chan bool)
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
-		collectAndSendMetrics(done)
+		collectAndSendMetrics(sigs)
 	}()
 
 	time.Sleep(time.Second * 15)
-	done <- true
+	sigs <- syscall.SIGINT
 
 	info := httpmock.GetCallCountInfo()
-	if info["POST http://localhost:8080/update/"] == 0 {
+	if info["POST http://localhost:8080/updates/"] == 0 {
 		t.Error("Ожидался запрос на сервер, но он не был получен")
 	}
 }

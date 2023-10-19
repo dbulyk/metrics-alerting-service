@@ -11,6 +11,7 @@ type Agent struct {
 	Address        string        `env:"ADDRESS" envDescription:"адрес сервера"`
 	ReportInterval time.Duration `env:"REPORT_INTERVAL" envDescription:"интервал отправки метрик на сервер"`
 	PollInterval   time.Duration `env:"POLL_INTERVAL" envDescription:"интервал опроса метрик"`
+	Key            string        `env:"KEY" envDescription:"ключ подписи"`
 }
 
 func NewAgentCfg() (*Agent, error) {
@@ -18,6 +19,7 @@ func NewAgentCfg() (*Agent, error) {
 	flag.StringVar(&agent.Address, "a", "localhost:8080", "адрес сервера")
 	flag.DurationVar(&agent.ReportInterval, "r", 10*time.Second, "интервал отправки метрик на сервер")
 	flag.DurationVar(&agent.PollInterval, "p", 2*time.Second, "интервал опроса метрик")
+	flag.StringVar(&agent.Key, "k", "", "ключ подписи")
 	flag.Parse()
 
 	err := env.Parse(&agent)

@@ -26,7 +26,7 @@ func GzipMiddleware(next http.Handler) http.Handler {
 		defer func(gz *gzip.Writer) {
 			err := gz.Close()
 			if err != nil {
-				log.Error().Err(err).Msg("ошибка закрытия gzip.Writer")
+				log.Error().Err(err).Msg("error closing gzip.Writer")
 			}
 		}(gzWriter)
 

@@ -1,11 +1,14 @@
-package stores
+package fileio
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"os"
 
 	"github.com/dbulyk/metrics-alerting-service/internal/models"
+	"github.com/dbulyk/metrics-alerting-service/internal/storages"
+
 	"github.com/rs/zerolog/log"
 )
 
@@ -27,10 +30,10 @@ func NewConsumer(filename string) (*Consumer, error) {
 	}, nil
 }
 
-func (c *Consumer) Read() ([]models.Metrics, error) {
-	metrics := make([]models.Metrics, 0, 50)
+func (c *Consumer) Read() ([]models.Metric, error) {
+	metrics := make([]models.Metric, 0, 50)
 	for c.reader.Scan() {
-		metric := models.Metrics{}
+		metric := models.Metric{}
 		if err := json.Unmarshal(c.reader.Bytes(), &metric); err != nil {
 			return nil, err
 		}
@@ -43,11 +46,11 @@ func (c *Consumer) Close() error {
 	return c.file.Close()
 }
 
-func (c *Consumer) Restore(mem *MemStorage) error {
+func (c *Consumer) Restore(ctx context.Context, mem storages.Repository) error {
 	defer func(consumer *Consumer) {
 		err := consumer.Close()
 		if err != nil {
-			log.Error().Msgf("ошибка закрытия файла")
+			log.Error().Msgf("file closing error")
 		}
 	}(c)
 
@@ -57,11 +60,11 @@ func (c *Consumer) Restore(mem *MemStorage) error {
 	}
 
 	for _, metric := range metrics {
-		_, err := mem.SetMetric(metric.ID, metric.MType, metric.Value, metric.Delta)
+		_, err = mem.Set(ctx, metric)
 		if err != nil {
-			return err
+			log.Error().Err(err).Msgf("metric recovery error %s", metric.ID)
 		}
 	}
-	log.Info().Msgf("метрики восстановлены из файла")
+	log.Info().Msgf("metrics recovered from file")
 	return nil
 }
