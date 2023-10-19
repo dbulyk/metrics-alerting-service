@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"crypto/hmac"
 	"database/sql"
 	"errors"
@@ -22,7 +23,7 @@ type dbRepository struct {
 func NewDBRepository(db *sql.DB) storages.Repository {
 	_, err := db.Exec("create table if not exists metrics (id text primary key, mtype text not null, delta bigint, value double precision, hash text)")
 	if err != nil {
-		log.Panic().Timestamp().Err(err).Msg("ошибка создания таблицы метрик")
+		log.Panic().Timestamp().Err(err).Msg("metrics table creation error")
 	}
 
 	return &dbRepository{
@@ -30,29 +31,29 @@ func NewDBRepository(db *sql.DB) storages.Repository {
 	}
 }
 
-func (dr *dbRepository) Set(metric models.Metric) (*models.Metric, error) {
+func (dr *dbRepository) Set(ctx context.Context, metric models.Metric) (*models.Metric, error) {
 	key := config.GetKey()
-	err := checkHashAndAddDelta(dr.db, &metric, key)
+	err := checkHashAndAddDelta(ctx, dr.db, &metric, key)
 	if err != nil {
-		log.Error().Err(err).Msg("ошибка проверки хэша и добавления дельты")
+		log.Error().Err(err).Msg("error of hash verification and delta addition")
 		return nil, err
 	}
 
-	_, err = dr.db.Exec("insert into metrics(id, mtype, delta, value, hash) values($1, $2, $3, $4, $5) on conflict (id) do update set delta = $3, value = $4, hash = $5",
+	_, err = dr.db.ExecContext(ctx, "insert into metrics(id, mtype, delta, value, hash) values($1, $2, $3, $4, $5) on conflict (id) do update set delta = $3, value = $4, hash = $5",
 		metric.ID, metric.MType, metric.Delta, metric.Value, metric.Hash)
 	if err != nil {
-		log.Error().Err(err).Msg("ошибка записи метрики в базу данных")
+		log.Error().Err(err).Msg("error of writing metrics to the database")
 		return nil, err
 	}
 	return &metric, nil
 }
 
-func (dr *dbRepository) Get(mName string, mType string) (*models.Metric, error) {
-	rows := dr.db.QueryRow("select id, mtype, delta, value, hash from metrics where id = $1 and mtype = $2", mName, mType)
+func (dr *dbRepository) Get(ctx context.Context, mName string, mType string) (*models.Metric, error) {
+	rows := dr.db.QueryRowContext(ctx, "select id, mtype, delta, value, hash from metrics where id = $1 and mtype = $2", mName, mType)
 	var m models.Metric
 	err := rows.Scan(&m.ID, &m.MType, &m.Delta, &m.Value, &m.Hash)
 	if err != nil {
-		log.Error().Err(err).Msg("ошибка сканирования метрики из базы данных")
+		log.Error().Err(err).Msg("metric scanning error from database")
 		return nil, ErrInvalidMetric
 	}
 
@@ -67,12 +68,12 @@ func (dr *dbRepository) Get(mName string, mType string) (*models.Metric, error) 
 	return &m, nil
 }
 
-func (dr *dbRepository) GetAll() ([]*models.Metric, error) {
+func (dr *dbRepository) GetAll(ctx context.Context) ([]*models.Metric, error) {
 	var metrics []*models.Metric
 
-	rows, err := dr.db.Query("select id, mtype, delta, value from metrics order by id")
+	rows, err := dr.db.QueryContext(ctx, "select id, mtype, delta, value from metrics order by id")
 	if err != nil {
-		log.Error().Err(err).Msg("ошибка получения метрик из базы данных")
+		log.Error().Err(err).Msg("error of getting metrics from the database")
 		return nil, err
 	}
 	defer rows.Close()
@@ -81,41 +82,41 @@ func (dr *dbRepository) GetAll() ([]*models.Metric, error) {
 		var m models.Metric
 		err = rows.Scan(&m.ID, &m.MType, &m.Delta, &m.Value)
 		if err != nil {
-			log.Error().Err(err).Msg("ошибка сканирования метрик из базы данных")
+			log.Error().Err(err).Msg("error of scanning metrics from the database")
 			return nil, err
 		}
 		metrics = append(metrics, &m)
 	}
 
 	if err = rows.Err(); err != nil {
-		log.Error().Err(err).Msg("ошибка получения метрик из базы данных")
+		log.Error().Err(err).Msg("error of getting metrics from the database")
 		return nil, err
 	}
 
 	return metrics, nil
 }
 
-func (dr *dbRepository) Updates(metrics []models.Metric) ([]models.Metric, error) {
+func (dr *dbRepository) Updates(ctx context.Context, metrics []models.Metric) ([]models.Metric, error) {
 	key := config.GetKey()
 	for i := range metrics {
-		err := checkHashAndAddDelta(dr.db, &metrics[i], key)
+		err := checkHashAndAddDelta(ctx, dr.db, &metrics[i], key)
 		if err != nil {
-			log.Error().Err(err).Msg("ошибка проверки хэша и добавления дельты")
+			log.Error().Err(err).Msg("error of hash verification and delta addition")
 			return nil, err
 		}
 
 		tx, err := dr.db.Begin()
 		if err != nil {
-			log.Error().Err(err).Msg("ошибка открытия транзакции: %")
+			log.Error().Err(err).Msg("transaction opening error")
 			return nil, err
 		}
-		_, err = tx.Exec("insert into metrics(id, mtype, delta, value, hash) values($1, $2, $3, $4, $5) on conflict (id) do update set delta = $3, value = $4, hash = $5",
+		_, err = tx.ExecContext(ctx, "insert into metrics(id, mtype, delta, value, hash) values($1, $2, $3, $4, $5) on conflict (id) do update set delta = $3, value = $4, hash = $5",
 			metrics[i].ID, metrics[i].MType, metrics[i].Delta, metrics[i].Value, metrics[i].Hash)
 		if err != nil {
-			log.Error().Err(err).Msg("ошибка записи метрики в базу данных. Откатываем транзакцию")
+			log.Error().Err(err).Msg("error of writing the metric to the database. Roll back the transaction")
 			err = tx.Rollback()
 			if err != nil {
-				log.Error().Err(err).Msg("ошибка отката транзакции")
+				log.Error().Err(err).Msg("transaction rollback error")
 				return nil, err
 			}
 			continue
@@ -123,7 +124,7 @@ func (dr *dbRepository) Updates(metrics []models.Metric) ([]models.Metric, error
 
 		err = tx.Commit()
 		if err != nil {
-			log.Error().Err(err).Msg("ошибка коммита транзакции")
+			log.Error().Err(err).Msg("transaction commit error")
 			return nil, err
 		}
 	}
@@ -135,7 +136,7 @@ func (dr *dbRepository) Ping() error {
 	return dr.db.Ping()
 }
 
-func checkHashAndAddDelta(db *sql.DB, metric *models.Metric, key string) error {
+func checkHashAndAddDelta(ctx context.Context, db *sql.DB, metric *models.Metric, key string) error {
 	var mHash, s string
 
 	if len(key) > 0 {
@@ -148,13 +149,13 @@ func checkHashAndAddDelta(db *sql.DB, metric *models.Metric, key string) error {
 
 		mHash = utils.Hash(s, key)
 		if !hmac.Equal([]byte(mHash), []byte(metric.Hash)) {
-			log.Error().Msgf("входящий хэш не совпадает с вычисленным. Метрика %s не будет добавлена", metric.ID)
+			log.Error().Msgf("the incoming hash does not match the calculated hash. Metric %s will not be added", metric.ID)
 			return ErrInvalidHash
 		}
 	}
 
 	if metric.MType == Counter {
-		res := db.QueryRow("select delta from metrics where id = $1 and mtype = $2", metric.ID, metric.MType)
+		res := db.QueryRowContext(ctx, "select delta from metrics where id = $1 and mtype = $2", metric.ID, metric.MType)
 		if res != nil {
 			var delta int64
 			err := res.Scan(&delta)
@@ -166,7 +167,7 @@ func checkHashAndAddDelta(db *sql.DB, metric *models.Metric, key string) error {
 					metric.Hash = utils.Hash(s, key)
 				}
 			} else if !errors.Is(err, sql.ErrNoRows) {
-				log.Error().Err(err).Msg("ошибка сканирования метрики из базы данных")
+				log.Error().Err(err).Msg("metric scanning error from database")
 				return err
 			}
 		}

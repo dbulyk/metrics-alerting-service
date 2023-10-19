@@ -32,23 +32,23 @@ func main() {
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 	log.Logger = zerolog.New(output).With().Timestamp().Logger()
 
-	log.Info().Msg("получение кофигурации сервера")
 	cfg := config.GetServerCfg()
-	log.Info().Msg("конфигурация сервера получена")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 
 	var metrics storages.Repository
 
 	if len(cfg.DatabaseDsn) > 0 {
-		log.Info().Msgf("подключение к базе данных по адресу: %s", cfg.DatabaseDsn)
 		db, err := sql.Open("pgx", cfg.DatabaseDsn)
 		if err != nil {
-			log.Panic().Timestamp().Err(err).Msg("ошибка открытия соединения с базой данных")
+			log.Panic().Timestamp().Err(err).Msg("database connection opening error")
 		}
 
 		defer func(db *sql.DB) {
 			err = db.Close()
 			if err != nil {
-				log.Error().Timestamp().Err(err).Msg("ошибка закрытия соединения с базой данных")
+				log.Error().Timestamp().Err(err).Msg("database connection closing error")
 			}
 		}(db)
 
@@ -65,16 +65,16 @@ func main() {
 	router.Use(middlewares.GzipMiddleware)
 	metricHandler := handlers.NewRouter(router, &metrics)
 	metricHandler.Register(router)
-	log.Info().Msg("роутер инициализирован")
+	log.Info().Msg("router initialized")
 
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 
 	if len(cfg.DatabaseDsn) == 0 {
-		writeTicker := startWriteToFile(cfg, metrics)
+		writeTicker := startWriteToFile(ctx, cfg, metrics)
 		if writeTicker != nil {
 			defer func() {
-				log.Info().Msgf("останавливаем тикер записи метрик в файл")
+				log.Info().Msgf("stop the ticker writing metrics to the file")
 				writeTicker.Stop()
 			}()
 		}
@@ -85,72 +85,63 @@ func main() {
 		Handler:           router,
 		ReadHeaderTimeout: 5 * time.Second,
 	}
-	log.Info().Msgf("сервер запускается на %s", cfg.Address)
+	log.Info().Msgf("the server starts at %s", cfg.Address)
 
 	go func() {
 		if err := srv.ListenAndServe(); err != nil {
-			log.Error().Timestamp().Err(err).Msg("ошибка работы сервера")
+			log.Error().Timestamp().Err(err).Msg("server error")
 		}
 	}()
 
 	<-sigs
-	shutdown(cfg, srv, metrics)
+	shutdown(ctx, cfg, srv, metrics)
 }
 
-func shutdown(cfg config.Server, srv *http.Server, mem storages.Repository) {
-	log.Info().Msg("получен сигнал остановки")
-
+func shutdown(ctx context.Context, cfg config.Server, srv *http.Server, mem storages.Repository) {
 	if len(cfg.StoreFile) > 0 && len(cfg.DatabaseDsn) == 0 {
 		producer, err := fileio.NewProducer(cfg.StoreFile)
 		if err != nil {
-			log.Error().Timestamp().Err(err).Msg("ошибка инициализации файла")
+			log.Error().Timestamp().Err(err).Msg("file initialization error")
 		} else {
-			err = producer.Save(mem, cfg.StoreFile)
+			err = producer.Save(ctx, mem, cfg.StoreFile)
 			if err != nil {
-				log.Error().Timestamp().Err(err).Msg("ошибка сохранения метрики в файл")
+				log.Error().Timestamp().Err(err).Msg("error saving metrics to file")
 			}
 		}
 	}
 
-	ctxShutDown, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer func() {
-		cancel()
-	}()
-
-	if err := srv.Shutdown(ctxShutDown); err != nil {
-		log.Error().Timestamp().Err(err).Msg("ошибка остановки сервера")
+	if err := srv.Shutdown(ctx); err != nil {
+		log.Error().Timestamp().Err(err).Msg("server stop error")
 	}
-
-	log.Info().Msg("сервер остановлен")
 }
 
-func startWriteToFile(cfg config.Server, metrics storages.Repository) *time.Ticker {
+func startWriteToFile(ctx context.Context, cfg config.Server, metrics storages.Repository) *time.Ticker {
 	if cfg.Restore && len(cfg.StoreFile) > 0 {
 		consumer, err := fileio.NewConsumer(cfg.StoreFile)
 		if err != nil {
-			log.Error().Timestamp().Err(err).Msg("ошибка инициализации файла")
+			log.Error().Timestamp().Err(err).Msg("file initialization error")
 		} else {
-			err = consumer.Restore(metrics)
+			err = consumer.Restore(ctx, metrics)
 			if err != nil {
-				log.Error().Timestamp().Err(err).Msg("ошибка восстановления метрик")
+				log.Error().Timestamp().Err(err).Msg("metrics recovery error")
 			}
 		}
 	}
 
 	if len(cfg.StoreFile) > 0 && cfg.StoreInterval > 0 {
-		log.Info().Msgf("запуск записи метрик в файл с интервалом в %s секунд", cfg.StoreInterval)
+		log.Info().Msgf("start recording metrics to a file at %s seconds intervals", cfg.StoreInterval)
 		writeTicker := time.NewTicker(cfg.StoreInterval)
 		go func() {
 			for range writeTicker.C {
 				producer, err := fileio.NewProducer(cfg.StoreFile)
 				if err != nil {
-					log.Error().Timestamp().Err(err).Msg("ошибка инициализации файла")
+					log.Error().Timestamp().Err(err).Msg("file initialization error")
 					return
 				}
 
-				err = producer.Save(metrics, cfg.StoreFile)
+				err = producer.Save(ctx, metrics, cfg.StoreFile)
 				if err != nil {
-					log.Error().Timestamp().Err(err).Msg("ошибка сохранения метрик")
+					log.Error().Timestamp().Err(err).Msg("metrics saving error")
 				}
 			}
 		}()

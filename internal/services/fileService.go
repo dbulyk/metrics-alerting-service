@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"crypto/hmac"
 	"errors"
 	"fmt"
@@ -23,9 +24,9 @@ const (
 )
 
 var (
-	ErrInvalidHash       = errors.New("входящий хэш не совпадает с вычисленным")
-	ErrInvalidMetric     = errors.New("метрики с такими параметрами не существует")
-	ErrInvalidMetricType = errors.New("такого типа метрик не существует")
+	ErrInvalidHash       = errors.New("incoming hash does not match the calculated hash")
+	ErrInvalidMetric     = errors.New("there is no such metric")
+	ErrInvalidMetricType = errors.New("this type of metric doesn't exist")
 )
 
 type fileRepository struct {
@@ -44,7 +45,7 @@ func NewFileRepository() storages.Repository {
 	}
 }
 
-func (fr *fileRepository) GetAll() ([]*models.Metric, error) {
+func (fr *fileRepository) GetAll(_ context.Context) ([]*models.Metric, error) {
 	fr.Lock()
 	var listMetrics = make([]*models.Metric, len(fr.metrics))
 	copy(listMetrics, fr.metrics)
@@ -52,13 +53,13 @@ func (fr *fileRepository) GetAll() ([]*models.Metric, error) {
 	return listMetrics, nil
 }
 
-func (fr *fileRepository) Set(metric models.Metric) (*models.Metric, error) {
+func (fr *fileRepository) Set(ctx context.Context, metric models.Metric) (*models.Metric, error) {
 	fr.Lock()
 	defer fr.Unlock()
 
 	m, err := addToStorage(&fr.metrics, metric)
 	if err != nil {
-		log.Error().Err(err).Msgf("произошла ошибка сохранения метрики %s, она не будет добавлена.", metric.ID)
+		log.Error().Err(err).Msgf("an error occurred in saving metric %s, it will not be added", metric.ID)
 		return nil, err
 	}
 	fr.metrics = m
@@ -68,9 +69,9 @@ func (fr *fileRepository) Set(metric models.Metric) (*models.Metric, error) {
 		if err != nil {
 			return nil, err
 		}
-		err = producer.Save(fr, fr.storeFile)
+		err = producer.Save(ctx, fr, fr.storeFile)
 		if err != nil {
-			log.Error().Err(err).Msg("ошибка сохранения метрики в файл")
+			log.Error().Err(err).Msg("error saving metrics to file")
 			return nil, err
 		}
 	}
@@ -78,7 +79,7 @@ func (fr *fileRepository) Set(metric models.Metric) (*models.Metric, error) {
 	return &metric, nil
 }
 
-func (fr *fileRepository) Get(id string, mType string) (*models.Metric, error) {
+func (fr *fileRepository) Get(_ context.Context, id string, mType string) (*models.Metric, error) {
 	fr.Lock()
 	for _, m := range fr.metrics {
 		if m.ID == id && m.MType == mType {
@@ -90,14 +91,14 @@ func (fr *fileRepository) Get(id string, mType string) (*models.Metric, error) {
 	return nil, ErrInvalidMetric
 }
 
-func (fr *fileRepository) Updates(metrics []models.Metric) ([]models.Metric, error) {
+func (fr *fileRepository) Updates(ctx context.Context, metrics []models.Metric) ([]models.Metric, error) {
 	fr.Lock()
 	defer fr.Unlock()
 
 	for _, metric := range metrics {
 		_, err := addToStorage(&fr.metrics, metric)
 		if err != nil {
-			log.Error().Err(err).Msgf("произошла ошибка сохранения метрики %s, она не будет добавлена", metric.ID)
+			log.Error().Err(err).Msgf("an error occurred in saving metric %s, it will not be added", metric.ID)
 			continue
 		}
 	}
@@ -105,12 +106,12 @@ func (fr *fileRepository) Updates(metrics []models.Metric) ([]models.Metric, err
 	if len(fr.storeFile) != 0 && fr.storeInterval == 0 {
 		producer, err := fileio.NewProducer(fr.storeFile)
 		if err != nil {
-			log.Error().Err(err).Msg("ошибка создания producer")
+			log.Error().Err(err).Msg("producer creation error")
 			return nil, err
 		}
-		err = producer.Save(fr, fr.storeFile)
+		err = producer.Save(ctx, fr, fr.storeFile)
 		if err != nil {
-			log.Error().Err(err).Msg("ошибка сохранения метрики в файл")
+			log.Error().Err(err).Msg("error saving metrics to file")
 			return nil, err
 		}
 	}
@@ -123,7 +124,7 @@ func (fr *fileRepository) Ping() error {
 
 func addToStorage(metrics *[]*models.Metric, metric models.Metric) ([]*models.Metric, error) {
 	if metric.MType != Counter && metric.MType != Gauge {
-		log.Error().Msgf("типа метрики %s не существует", metric.MType)
+		log.Error().Msgf("like metric %s doesn't exist", metric.MType)
 		return nil, ErrInvalidMetricType
 	}
 
@@ -139,7 +140,7 @@ func addToStorage(metrics *[]*models.Metric, metric models.Metric) ([]*models.Me
 
 		mHash = utils.Hash(s, key)
 		if !hmac.Equal([]byte(mHash), []byte(metric.Hash)) {
-			log.Error().Msgf("входящий хэш не совпадает с вычисленным. Метрика %s не будет добавлена", metric.ID)
+			log.Error().Msgf("the incoming hash does not match the calculated hash. Metric %s will not be added", metric.ID)
 			return nil, ErrInvalidHash
 		}
 	}

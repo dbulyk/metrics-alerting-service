@@ -37,12 +37,6 @@ func TestSendRequestToMetricsUpdate(t *testing.T) {
 }
 
 func TestCollectMetrics(t *testing.T) {
-	httpmock.Activate()
-	defer httpmock.DeactivateAndReset()
-
-	httpmock.RegisterResponder("POST", "http://localhost:8080/updates/",
-		httpmock.NewStringResponder(200, ""))
-
 	f := atomic.Int64{}
 	metrics := collectMetrics(&f)
 	assert.NotEqual(t, len(metrics), 0, "ожидался набор метрик, но получен пустой ответ")

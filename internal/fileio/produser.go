@@ -1,6 +1,7 @@
 package fileio
 
 import (
+	"context"
 	"encoding/json"
 	"os"
 
@@ -45,13 +46,13 @@ func (p *Producer) Close() error {
 	return p.file.Close()
 }
 
-func (p *Producer) Save(mem storages.Repository, filename string) error {
-	listMetrics, _ := mem.GetAll()
+func (p *Producer) Save(ctx context.Context, mem storages.Repository, filename string) error {
+	listMetrics, _ := mem.GetAll(ctx)
 
 	defer func(p *Producer) {
 		err := p.Close()
 		if err != nil {
-			log.Error().Msgf("ошибка закрытия файла %s", filename)
+			log.Error().Msgf("file closing error %s", filename)
 		}
 	}(p)
 
@@ -59,6 +60,6 @@ func (p *Producer) Save(mem storages.Repository, filename string) error {
 	if err != nil {
 		return err
 	}
-	log.Info().Msgf("метрики сохранены в файл %s", filename)
+	log.Info().Msgf("metrics saved to file %s", filename)
 	return nil
 }

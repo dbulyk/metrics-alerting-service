@@ -2,6 +2,7 @@ package fileio
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"os"
 
@@ -45,11 +46,11 @@ func (c *Consumer) Close() error {
 	return c.file.Close()
 }
 
-func (c *Consumer) Restore(mem storages.Repository) error {
+func (c *Consumer) Restore(ctx context.Context, mem storages.Repository) error {
 	defer func(consumer *Consumer) {
 		err := consumer.Close()
 		if err != nil {
-			log.Error().Msgf("ошибка закрытия файла")
+			log.Error().Msgf("file closing error")
 		}
 	}(c)
 
@@ -59,11 +60,11 @@ func (c *Consumer) Restore(mem storages.Repository) error {
 	}
 
 	for _, metric := range metrics {
-		_, err = mem.Set(metric)
+		_, err = mem.Set(ctx, metric)
 		if err != nil {
-			log.Error().Err(err).Msgf("ошибка восстановления метрики %s", metric.ID)
+			log.Error().Err(err).Msgf("metric recovery error %s", metric.ID)
 		}
 	}
-	log.Info().Msgf("метрики восстановлены из файла")
+	log.Info().Msgf("metrics recovered from file")
 	return nil
 }

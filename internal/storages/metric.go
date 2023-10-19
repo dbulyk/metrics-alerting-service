@@ -1,11 +1,15 @@
 package storages
 
-import "github.com/dbulyk/metrics-alerting-service/internal/models"
+import (
+	"context"
+
+	"github.com/dbulyk/metrics-alerting-service/internal/models"
+)
 
 type Repository interface {
-	Set(metric models.Metric) (*models.Metric, error)
-	Get(mName string, mType string) (*models.Metric, error)
-	GetAll() ([]*models.Metric, error)
-	Updates([]models.Metric) ([]models.Metric, error)
+	Set(ctx context.Context, metric models.Metric) (*models.Metric, error)
+	Get(ctx context.Context, mName string, mType string) (*models.Metric, error)
+	GetAll(ctx context.Context) ([]*models.Metric, error)
+	Updates(ctx context.Context, metric []models.Metric) ([]models.Metric, error)
 	Ping() error
 }

@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -10,6 +11,7 @@ import (
 	"os"
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/dbulyk/metrics-alerting-service/internal/models"
 	"github.com/dbulyk/metrics-alerting-service/internal/services"
@@ -213,8 +215,10 @@ func TestHandler_UpdateWithText(t *testing.T) {
 
 			assert.Equal(t, tc.statusCode, resp.StatusCode)
 
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
 			if tc.statusCode == http.StatusOK {
-				metric, err := mem.Get(tc.mName, tc.mType)
+				metric, err := mem.Get(ctx, tc.mName, tc.mType)
 				require.NoError(t, err)
 
 				if tc.mType == "gauge" {

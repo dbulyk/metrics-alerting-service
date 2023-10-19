@@ -1,8 +1,10 @@
 package services
 
 import (
+	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/dbulyk/metrics-alerting-service/internal/utils"
 
@@ -31,7 +33,9 @@ func TestSet(t *testing.T) {
 		WithArgs(metric.ID, metric.MType, metric.Delta, metric.Value, metric.Hash).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
-	metricResp, err := dr.Set(metric)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	metricResp, err := dr.Set(ctx, metric)
 	assert.NoError(t, err)
 	assert.Equal(t, int64(1), *metricResp.Delta)
 
@@ -58,7 +62,9 @@ func TestCheckHashAndAddDelta(t *testing.T) {
 
 	mock.ExpectQuery("select (.+)").WithArgs(metric.ID, metric.MType).WillReturnRows(rows)
 
-	err = checkHashAndAddDelta(db, metric, "")
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	err = checkHashAndAddDelta(ctx, db, metric, "")
 	assert.Nil(t, err)
 
 	assert.Equal(t, int64(5), *metric.Delta)
@@ -77,17 +83,17 @@ func TestCheckHashAndAddDelta(t *testing.T) {
 
 	mock.ExpectQuery("select (.+)").WithArgs(metric.ID, metric.MType).WillReturnRows(rows)
 
-	err = checkHashAndAddDelta(db, metric, "")
+	err = checkHashAndAddDelta(ctx, db, metric, "")
 	assert.NoError(t, err)
 
 	assert.Equal(t, int64(15), *metric.Delta)
 
 	metric.Hash = utils.Hash("test:counter:15", "test")
 	mock.ExpectQuery("select (.+)").WithArgs(metric.ID, metric.MType).WillReturnRows(rows)
-	err = checkHashAndAddDelta(db, metric, "test")
+	err = checkHashAndAddDelta(ctx, db, metric, "test")
 	assert.NoError(t, err)
 
-	err = checkHashAndAddDelta(db, metric, "test1")
+	err = checkHashAndAddDelta(ctx, db, metric, "test1")
 	assert.Error(t, err, ErrInvalidHash)
 }
 
@@ -112,7 +118,9 @@ func TestGet(t *testing.T) {
 		WithArgs(mockMetric.ID, mockMetric.MType).
 		WillReturnRows(rows)
 
-	m, err := dr.Get(mockMetric.ID, mockMetric.MType)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	m, err := dr.Get(ctx, mockMetric.ID, mockMetric.MType)
 	assert.NoError(t, err)
 
 	err = mock.ExpectationsWereMet()
@@ -123,7 +131,7 @@ func TestGet(t *testing.T) {
 	assert.Equal(t, mockMetric.Delta, m.Delta)
 
 	mock.ExpectQuery("^select (.+) from metrics").WillReturnError(errors.New("mock error"))
-	_, err = dr.Get("testCounterWrong", Counter)
+	_, err = dr.Get(ctx, "testCounterWrong", Counter)
 	assert.Error(t, err, ErrInvalidMetric)
 }
 
@@ -142,7 +150,9 @@ func TestDBRepository_GetAll(t *testing.T) {
 
 	repo := &dbRepository{db}
 
-	metrics, err := repo.GetAll()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	metrics, err := repo.GetAll(ctx)
 	assert.NoError(t, err)
 	assert.NotNil(t, metrics)
 
@@ -157,7 +167,7 @@ func TestDBRepository_GetAll(t *testing.T) {
 	mock.ExpectQuery("^select (.+) from metrics order by id$").
 		WillReturnError(errors.New("unexpected error"))
 
-	_, err = repo.GetAll()
+	_, err = repo.GetAll(ctx)
 
 	assert.Error(t, err)
 	assert.Equal(t, "unexpected error", err.Error())
