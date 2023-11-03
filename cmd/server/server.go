@@ -3,6 +3,10 @@ package main
 import (
 	"context"
 	"database/sql"
+	"errors"
+
+	"github.com/dbulyk/metrics-alerting-service/cmd/server/config"
+	_ "github.com/jackc/pgx/v5/stdlib"
 
 	"github.com/dbulyk/metrics-alerting-service/internal/fileio"
 	"github.com/dbulyk/metrics-alerting-service/internal/handlers"
@@ -10,7 +14,6 @@ import (
 	"github.com/dbulyk/metrics-alerting-service/internal/services"
 	"github.com/dbulyk/metrics-alerting-service/internal/storages"
 	"github.com/go-chi/chi/v5/middleware"
-	_ "github.com/jackc/pgx/v5/stdlib"
 
 	"github.com/go-chi/chi/v5"
 
@@ -22,12 +25,10 @@ import (
 
 	"github.com/rs/zerolog"
 
-	"github.com/dbulyk/metrics-alerting-service/config"
 	"github.com/rs/zerolog/log"
 )
 
 func main() {
-	defer os.Exit(0)
 	output := zerolog.ConsoleWriter{Out: os.Stderr}
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 	log.Logger = zerolog.New(output).With().Timestamp().Logger()
@@ -88,7 +89,7 @@ func main() {
 	log.Info().Msgf("the server starts at %s", cfg.Address)
 
 	go func() {
-		if err := srv.ListenAndServe(); err != nil {
+		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Error().Timestamp().Err(err).Msg("server error")
 		}
 	}()
@@ -113,6 +114,9 @@ func shutdown(ctx context.Context, cfg config.Server, srv *http.Server, mem stor
 	if err := srv.Shutdown(ctx); err != nil {
 		log.Error().Timestamp().Err(err).Msg("server stop error")
 	}
+
+	<-ctx.Done()
+	log.Info().Msg("server stopped")
 }
 
 func startWriteToFile(ctx context.Context, cfg config.Server, metrics storages.Repository) *time.Ticker {

@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/dbulyk/metrics-alerting-service/cmd/server/config"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -18,7 +19,6 @@ import (
 
 	"github.com/dbulyk/metrics-alerting-service/internal/utils"
 
-	"github.com/dbulyk/metrics-alerting-service/config"
 	"github.com/go-chi/chi/v5"
 	"github.com/rs/zerolog/log"
 	"github.com/stretchr/testify/assert"

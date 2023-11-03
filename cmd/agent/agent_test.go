@@ -41,7 +41,9 @@ func TestSendRequestToMetricsUpdate(t *testing.T) {
 
 func TestCollectMetrics(t *testing.T) {
 	f := atomic.Int64{}
-	metrics := collectMetrics(&f)
+	metricsCh := make(chan []models.Metric)
+	go collectRuntimeMetrics(&f, metricsCh)
+	metrics := <-metricsCh
 	assert.NotEqual(t, len(metrics), 0, "ожидался набор метрик, но получен пустой ответ")
 	for _, m := range metrics {
 		if m.ID == "" || m.MType == "" || m.Value == nil && m.Delta == nil {

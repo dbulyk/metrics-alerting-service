@@ -16,11 +16,13 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/dbulyk/metrics-alerting-service/cmd/agent/config"
+	"github.com/shirou/gopsutil/v3/cpu"
+	"github.com/shirou/gopsutil/v3/mem"
+
 	"github.com/dbulyk/metrics-alerting-service/internal/models"
 
 	"github.com/dbulyk/metrics-alerting-service/internal/utils"
-
-	"github.com/dbulyk/metrics-alerting-service/config"
 )
 
 var (
@@ -40,8 +42,9 @@ func collectAndSendMetrics(sigs chan os.Signal) {
 	}
 
 	var (
-		metrics   = make([]models.Metric, 0, 50)
+		metrics   = make([]models.Metric, 0, 100)
 		pollCount atomic.Int64
+		metricsCh = make(chan []models.Metric, 2)
 	)
 
 	pollCount.Store(1)
@@ -56,7 +59,10 @@ func collectAndSendMetrics(sigs chan os.Signal) {
 		select {
 		case <-pollTicker.C:
 			log.Print("metrics collection")
-			metrics = collectMetrics(&pollCount)
+			go collectRuntimeMetrics(&pollCount, metricsCh)
+			go collectAdvancedMetrics(metricsCh)
+			metrics = <-metricsCh
+			metrics = append(metrics, <-metricsCh...)
 			pollCount.Add(1)
 			log.Print("metrics collection is complete")
 		case <-reportTicker.C:
@@ -127,12 +133,12 @@ func sendRequestToMetricsUpdate(metrics []models.Metric, address string, key str
 	return nil
 }
 
-func collectMetrics(count *atomic.Int64) (metrics []models.Metric) {
+func collectRuntimeMetrics(count *atomic.Int64, metrics chan<- []models.Metric) {
 	runtime.ReadMemStats(&rtm)
 	randomValue := rand.Float64()
 	countValue := count.Load()
 
-	return []models.Metric{
+	metrics <- []models.Metric{
 		{
 			ID:    "Alloc",
 			MType: "gauge",
@@ -279,6 +285,46 @@ func collectMetrics(count *atomic.Int64) (metrics []models.Metric) {
 			Value: &randomValue,
 		},
 	}
+	return
+}
+
+func collectAdvancedMetrics(metrics chan<- []models.Metric) {
+	memory, err := mem.VirtualMemory()
+	if err != nil {
+		log.Printf("An error occurred while collecting metrics. Error: %s", err.Error())
+		return
+	}
+
+	cpuUtilization, err := cpu.Percent(0, true)
+	if err != nil {
+		log.Printf("An error occurred while collecting metrics. Error: %s", err.Error())
+		return
+	}
+
+	m := make([]models.Metric, 0, 20)
+
+	m = []models.Metric{
+		{
+			ID:    "TotalMemory",
+			MType: "gauge",
+			Value: convertToPointerToFloat64(memory.Total),
+		},
+		{
+			ID:    "FreeMemory",
+			MType: "gauge",
+			Value: convertToPointerToFloat64(memory.Available),
+		},
+	}
+
+	for i := range cpuUtilization {
+		m = append(m, models.Metric{
+			ID:    fmt.Sprintf("CPUutilization%d", i+1),
+			MType: "gauge",
+			Value: &cpuUtilization[i],
+		})
+	}
+	metrics <- m
+	return
 }
 
 func convertToPointerToFloat64(par uint64) *float64 {

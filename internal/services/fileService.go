@@ -5,6 +5,7 @@ import (
 	"crypto/hmac"
 	"errors"
 	"fmt"
+	"github.com/dbulyk/metrics-alerting-service/cmd/server/config"
 	"sync"
 	"time"
 
@@ -14,7 +15,6 @@ import (
 
 	"github.com/dbulyk/metrics-alerting-service/internal/utils"
 
-	"github.com/dbulyk/metrics-alerting-service/config"
 	"github.com/rs/zerolog/log"
 )
 

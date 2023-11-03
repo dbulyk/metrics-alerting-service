@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"encoding/json"
+	"github.com/dbulyk/metrics-alerting-service/cmd/server/config"
 	"os"
 	"testing"
 	"time"
@@ -13,7 +14,6 @@ import (
 	"github.com/dbulyk/metrics-alerting-service/internal/models"
 	"github.com/stretchr/testify/require"
 
-	"github.com/dbulyk/metrics-alerting-service/config"
 	"github.com/dbulyk/metrics-alerting-service/internal/utils"
 
 	"github.com/stretchr/testify/assert"
