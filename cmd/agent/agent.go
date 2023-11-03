@@ -285,7 +285,6 @@ func collectRuntimeMetrics(count *atomic.Int64, metrics chan<- []models.Metric) 
 			Value: &randomValue,
 		},
 	}
-	return
 }
 
 func collectAdvancedMetrics(metrics chan<- []models.Metric) {
@@ -301,7 +300,7 @@ func collectAdvancedMetrics(metrics chan<- []models.Metric) {
 		return
 	}
 
-	m := make([]models.Metric, 0, 20)
+	m := make([]models.Metric, 0, 15)
 
 	m = []models.Metric{
 		{
@@ -324,7 +323,6 @@ func collectAdvancedMetrics(metrics chan<- []models.Metric) {
 		})
 	}
 	metrics <- m
-	return
 }
 
 func convertToPointerToFloat64(par uint64) *float64 {
