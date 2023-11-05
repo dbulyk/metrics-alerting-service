@@ -1,14 +1,13 @@
 package main
 
 import (
+	"github.com/dbulyk/metrics-alerting-service/internal/models"
 	"os"
 	"os/signal"
 	"sync/atomic"
 	"syscall"
 	"testing"
 	"time"
-
-	"github.com/dbulyk/metrics-alerting-service/internal/models"
 
 	"github.com/jarcoal/httpmock"
 	"github.com/stretchr/testify/assert"
@@ -61,9 +60,7 @@ func TestCollectAndSendMetrics(t *testing.T) {
 
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
-	go func() {
-		collectAndSendMetrics(sigs)
-	}()
+	go collectAndSendMetrics(sigs)
 
 	time.Sleep(time.Second * 15)
 	sigs <- syscall.SIGINT

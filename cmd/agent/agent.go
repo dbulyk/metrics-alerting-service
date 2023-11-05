@@ -12,17 +12,16 @@ import (
 	"os"
 	"os/signal"
 	"runtime"
+	"sync"
 	"sync/atomic"
 	"syscall"
 	"time"
 
-	"github.com/dbulyk/metrics-alerting-service/cmd/agent/config"
+	"github.com/dbulyk/metrics-alerting-service/internal/models"
+	"github.com/dbulyk/metrics-alerting-service/internal/utils"
+
 	"github.com/shirou/gopsutil/v3/cpu"
 	"github.com/shirou/gopsutil/v3/mem"
-
-	"github.com/dbulyk/metrics-alerting-service/internal/models"
-
-	"github.com/dbulyk/metrics-alerting-service/internal/utils"
 )
 
 var (
@@ -36,15 +35,16 @@ func main() {
 }
 
 func collectAndSendMetrics(sigs chan os.Signal) {
-	cfg, err := config.NewAgentCfg()
+	cfg, err := Get()
 	if err != nil {
 		log.Fatalf("config parsing error: %v", err)
 	}
 
 	var (
 		metrics   = make([]models.Metric, 0, 100)
+		metricsCh = make(chan []models.Metric)
 		pollCount atomic.Int64
-		metricsCh = make(chan []models.Metric, 2)
+		mutex     sync.Mutex
 	)
 
 	pollCount.Store(1)
@@ -58,17 +58,21 @@ func collectAndSendMetrics(sigs chan os.Signal) {
 	for {
 		select {
 		case <-pollTicker.C:
-			log.Print("metrics collection")
 			go collectRuntimeMetrics(&pollCount, metricsCh)
 			go collectAdvancedMetrics(metricsCh)
-			metrics = <-metricsCh
-			metrics = append(metrics, <-metricsCh...)
+
+			metricsBuffer := <-metricsCh
+			metricsBuffer = append(metricsBuffer, <-metricsCh...)
+
+			mutex.Lock()
+			metrics = metricsBuffer
+			mutex.Unlock()
 			pollCount.Add(1)
 			log.Print("metrics collection is complete")
 		case <-reportTicker.C:
-			log.Print("sending metrics")
-
+			mutex.Lock()
 			err = sendRequestToMetricsUpdate(metrics, cfg.Address, cfg.Key)
+			mutex.Unlock()
 			if err != nil {
 				log.Printf("An error occurred while creating a query. Error: %s", err.Error())
 				continue
@@ -106,7 +110,6 @@ func sendRequestToMetricsUpdate(metrics []models.Metric, address string, key str
 
 	request, err := http.NewRequest(http.MethodPost, "http://"+address+"/updates/", bytes.NewBuffer(jsonData))
 	if err != nil {
-		log.Printf("An error occurred while creating a query. Error: %s", err.Error())
 		return err
 	}
 	request.Header.Set("Content-Type", "application/json")
@@ -114,19 +117,16 @@ func sendRequestToMetricsUpdate(metrics []models.Metric, address string, key str
 	client := &http.Client{}
 	response, err := client.Do(request)
 	if err != nil {
-		log.Printf("An error occurred while sending a request. Error: %s", err.Error())
 		return err
 	}
 
 	_, err = io.ReadAll(response.Body)
 	if err != nil {
-		log.Printf("An error occurred while reading the response. Error: %s", err.Error())
 		return err
 	}
 
 	err = response.Body.Close()
 	if err != nil {
-		log.Printf("An error occurred when closing the response body. Error: %s", err.Error())
 		return err
 	}
 
@@ -300,9 +300,7 @@ func collectAdvancedMetrics(metrics chan<- []models.Metric) {
 		return
 	}
 
-	m := make([]models.Metric, 0, 15)
-
-	m = []models.Metric{
+	m := []models.Metric{
 		{
 			ID:    "TotalMemory",
 			MType: "gauge",

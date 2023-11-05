@@ -3,24 +3,22 @@ package services
 import (
 	"context"
 	"encoding/json"
-	"github.com/dbulyk/metrics-alerting-service/cmd/server/config"
+	"github.com/dbulyk/metrics-alerting-service/cmd/server/internal/fileio"
+	"github.com/dbulyk/metrics-alerting-service/internal/models"
+	"github.com/dbulyk/metrics-alerting-service/internal/utils"
 	"os"
 	"testing"
 	"time"
 
 	"github.com/rs/zerolog/log"
 
-	"github.com/dbulyk/metrics-alerting-service/internal/fileio"
-	"github.com/dbulyk/metrics-alerting-service/internal/models"
 	"github.com/stretchr/testify/require"
-
-	"github.com/dbulyk/metrics-alerting-service/internal/utils"
 
 	"github.com/stretchr/testify/assert"
 )
 
 func TestSetMetric(t *testing.T) {
-	storage := &fileRepository{}
+	storage := NewFileRepository("tmp/devops-metrics-db.json", time.Second, "test")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -30,7 +28,7 @@ func TestSetMetric(t *testing.T) {
 		MType: "gauge",
 		Delta: nil,
 		Value: &value,
-		Hash:  utils.Hash("test_metric_gauge:gauge:12.500000", config.GetKey()),
+		Hash:  utils.Hash("test_metric_gauge:gauge:12.500000", "test"),
 	})
 	assert.NoError(t, err, "ожидалось отсутствие ошибки")
 	delta := int64(12)
@@ -39,7 +37,7 @@ func TestSetMetric(t *testing.T) {
 		MType: "counter",
 		Delta: &delta,
 		Value: nil,
-		Hash:  utils.Hash("test_metric_counter:counter:12", config.GetKey()),
+		Hash:  utils.Hash("test_metric_counter:counter:12", "test"),
 	})
 	assert.NoError(t, err, "ожидалось отсутствие ошибки")
 
@@ -55,7 +53,7 @@ func TestSetMetric(t *testing.T) {
 		MType: "counter",
 		Delta: &delta,
 		Value: nil,
-		Hash:  "",
+		Hash:  utils.Hash("test_metric_counter:counter:12", "test"),
 	})
 	assert.NoErrorf(t, err, "ошибка обновления существующей метрики: %v", err)
 
@@ -65,7 +63,7 @@ func TestSetMetric(t *testing.T) {
 }
 
 func TestGetMetric(t *testing.T) {
-	storage := &fileRepository{}
+	storage := NewFileRepository("tmp/devops-metrics-db.json", time.Second, "test")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -75,7 +73,7 @@ func TestGetMetric(t *testing.T) {
 		MType: "gauge",
 		Delta: nil,
 		Value: &value,
-		Hash:  utils.Hash("test_metric_gauge:gauge:12.500000", config.GetKey()),
+		Hash:  utils.Hash("test_metric_gauge:gauge:12.500000", "test"),
 	})
 	assert.NoError(t, err, "ожидалось отсутствие ошибки")
 
@@ -91,7 +89,7 @@ func TestGetMetric(t *testing.T) {
 		MType: "counter",
 		Delta: &delta,
 		Value: nil,
-		Hash:  utils.Hash("test_metric_counter2:counter:12", config.GetKey()),
+		Hash:  utils.Hash("test_metric_counter2:counter:12", "test"),
 	})
 	assert.NoError(t, err, "ожидалось отсутствие ошибки")
 
@@ -108,10 +106,14 @@ func TestGetMetric(t *testing.T) {
 func TestNewConsumer(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	tmpfile, err := os.CreateTemp(tmpDir, "*.json")
+	dumpfile, err := os.CreateTemp(tmpDir, "*.json")
 	require.NoError(t, err)
 
-	consumer, err := fileio.NewConsumer(tmpfile.Name())
+	defer func() {
+		dumpfile.Close()
+	}()
+
+	consumer, err := fileio.NewConsumer(dumpfile.Name())
 	require.NoError(t, err)
 	defer func(consumer *fileio.Consumer) {
 		err = consumer.Close()
@@ -124,19 +126,23 @@ func TestNewConsumer(t *testing.T) {
 func TestConsumer_Read(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	tmpfile, err := os.CreateTemp(tmpDir, "*.json")
+	dumpfile, err := os.CreateTemp(tmpDir, "*.json")
 	require.NoError(t, err)
+
+	defer func() {
+		dumpfile.Close()
+	}()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	mem := NewFileRepository()
+	mem := NewFileRepository("tmp/devops-metrics-db.json", time.Second, "test")
 	v := 123.15
 	_, err = mem.Set(ctx, models.Metric{
 		ID:    "testGauge",
 		MType: "gauge",
 		Delta: nil,
 		Value: &v,
-		Hash:  utils.Hash("testGauge:gauge:123.150000", config.GetKey()),
+		Hash:  utils.Hash("testGauge:gauge:123.150000", "test"),
 	})
 	assert.NoError(t, err)
 
@@ -146,7 +152,7 @@ func TestConsumer_Read(t *testing.T) {
 		MType: "counter",
 		Delta: &i,
 		Value: nil,
-		Hash:  utils.Hash("testCounter:counter:123", config.GetKey()),
+		Hash:  utils.Hash("testCounter:counter:123", "test"),
 	})
 	assert.NoError(t, err)
 
@@ -155,13 +161,13 @@ func TestConsumer_Read(t *testing.T) {
 	for _, metric := range testMetrics {
 		data, err := json.Marshal(metric)
 		require.NoError(t, err)
-		_, err = tmpfile.Write(data)
+		_, err = dumpfile.Write(data)
 		require.NoError(t, err)
-		_, err = tmpfile.WriteString("\n")
+		_, err = dumpfile.WriteString("\n")
 		require.NoError(t, err)
 	}
 
-	consumer, err := fileio.NewConsumer(tmpfile.Name())
+	consumer, err := fileio.NewConsumer(dumpfile.Name())
 	require.NoError(t, err)
 	defer func(consumer *fileio.Consumer) {
 		err = consumer.Close()
@@ -170,7 +176,7 @@ func TestConsumer_Read(t *testing.T) {
 		}
 	}(consumer)
 
-	mem1 := NewFileRepository()
+	mem1 := NewFileRepository("tmp/devops-metrics-db.json", time.Second, "test")
 	metrics, err := consumer.Read()
 	require.NoError(t, err)
 
@@ -186,11 +192,15 @@ func TestConsumer_Read(t *testing.T) {
 func TestConsumer_Close(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	tmpfile, err := os.CreateTemp(tmpDir, "*.json")
+	dumpfile, err := os.CreateTemp(tmpDir, "*.json")
 	require.NoError(t, err)
 
-	consumer, err := fileio.NewConsumer(tmpfile.Name())
+	consumer, err := fileio.NewConsumer(dumpfile.Name())
 	require.NoError(t, err)
+
+	defer func() {
+		dumpfile.Close()
+	}()
 
 	err = consumer.Close()
 	assert.NoError(t, err)
@@ -199,12 +209,16 @@ func TestConsumer_Close(t *testing.T) {
 func TestRestoreMetricsFromFile(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	tmpfile, err := os.CreateTemp(tmpDir, "*.json")
+	dumpfile, err := os.CreateTemp(tmpDir, "*.json")
 	require.NoError(t, err)
 
-	mem := NewFileRepository()
+	defer func() {
+		dumpfile.Close()
+	}()
 
-	consumer, err := fileio.NewConsumer(tmpfile.Name())
+	mem := NewFileRepository("tmp/devops-metrics-db.json", time.Second, "")
+
+	consumer, err := fileio.NewConsumer(dumpfile.Name())
 	require.NoError(t, err)
 	defer func(consumer *fileio.Consumer) {
 		err = consumer.Close()
@@ -222,7 +236,7 @@ func TestRestoreMetricsFromFile(t *testing.T) {
 		MType: "gauge",
 		Delta: nil,
 		Value: &v,
-		Hash:  utils.Hash("testGauge:gauge:123.150000", config.GetKey()),
+		Hash:  utils.Hash("testGauge:gauge:123.150000", "test"),
 	})
 	assert.NoError(t, err)
 
@@ -232,11 +246,11 @@ func TestRestoreMetricsFromFile(t *testing.T) {
 		MType: "counter",
 		Delta: &i,
 		Value: nil,
-		Hash:  utils.Hash("testCounter:counter:123", config.GetKey()),
+		Hash:  utils.Hash("testCounter:counter:123", "test"),
 	})
 	assert.NoError(t, err)
 
-	producer, err := fileio.NewProducer(tmpfile.Name())
+	producer, err := fileio.NewProducer(dumpfile.Name())
 	require.NoError(t, err)
 	defer func(producer *fileio.Producer) {
 		err = producer.Close()
@@ -245,7 +259,7 @@ func TestRestoreMetricsFromFile(t *testing.T) {
 		}
 	}(producer)
 
-	err = producer.Save(ctx, mem, tmpfile.Name())
+	err = producer.Save(ctx, mem, dumpfile.Name())
 	require.NoError(t, err)
 
 	err = consumer.Restore(ctx, mem)

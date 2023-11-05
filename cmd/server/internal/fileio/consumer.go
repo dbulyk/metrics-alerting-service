@@ -4,10 +4,9 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
-	"os"
-
+	"github.com/dbulyk/metrics-alerting-service/cmd/server/internal/storages"
 	"github.com/dbulyk/metrics-alerting-service/internal/models"
-	"github.com/dbulyk/metrics-alerting-service/internal/storages"
+	"os"
 
 	"github.com/rs/zerolog/log"
 )

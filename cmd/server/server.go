@@ -4,15 +4,15 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"github.com/dbulyk/metrics-alerting-service/cmd/server/internal/fileio"
+	"github.com/dbulyk/metrics-alerting-service/cmd/server/internal/services"
 
-	"github.com/dbulyk/metrics-alerting-service/cmd/server/config"
+	"github.com/dbulyk/metrics-alerting-service/cmd/server/internal/handlers"
+	"github.com/dbulyk/metrics-alerting-service/cmd/server/internal/middlewares"
+	"github.com/dbulyk/metrics-alerting-service/cmd/server/internal/storages"
+
 	_ "github.com/jackc/pgx/v5/stdlib"
 
-	"github.com/dbulyk/metrics-alerting-service/internal/fileio"
-	"github.com/dbulyk/metrics-alerting-service/internal/handlers"
-	"github.com/dbulyk/metrics-alerting-service/internal/middlewares"
-	"github.com/dbulyk/metrics-alerting-service/internal/services"
-	"github.com/dbulyk/metrics-alerting-service/internal/storages"
 	"github.com/go-chi/chi/v5/middleware"
 
 	"github.com/go-chi/chi/v5"
@@ -33,7 +33,8 @@ func main() {
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 	log.Logger = zerolog.New(output).With().Timestamp().Logger()
 
-	cfg := config.GetServerCfg()
+	serverCfg := &ServerCfg{}
+	cfg := serverCfg.Get()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -53,9 +54,9 @@ func main() {
 			}
 		}(db)
 
-		metrics = services.NewDBRepository(db, cfg.DatabaseDsn)
+		metrics = services.NewDBRepository(db, cfg.DatabaseDsn, cfg.Key)
 	} else {
-		metrics = services.NewFileRepository()
+		metrics = services.NewFileRepository(cfg.StoreFile, cfg.StoreInterval, cfg.Key)
 	}
 
 	router := chi.NewRouter()
@@ -90,7 +91,7 @@ func main() {
 
 	go func() {
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			log.Error().Timestamp().Err(err).Msg("server error")
+			log.Error().Timestamp().Err(err).Msg("serverCfg error")
 		}
 	}()
 
@@ -98,7 +99,7 @@ func main() {
 	shutdown(ctx, cfg, srv, metrics)
 }
 
-func shutdown(ctx context.Context, cfg config.Server, srv *http.Server, mem storages.Repository) {
+func shutdown(ctx context.Context, cfg *ServerCfg, srv *http.Server, mem storages.Repository) {
 	if len(cfg.StoreFile) > 0 && len(cfg.DatabaseDsn) == 0 {
 		producer, err := fileio.NewProducer(cfg.StoreFile)
 		if err != nil {
@@ -112,14 +113,14 @@ func shutdown(ctx context.Context, cfg config.Server, srv *http.Server, mem stor
 	}
 
 	if err := srv.Shutdown(ctx); err != nil {
-		log.Error().Timestamp().Err(err).Msg("server stop error")
+		log.Error().Timestamp().Err(err).Msg("serverCfg stop error")
 	}
 
 	<-ctx.Done()
-	log.Info().Msg("server stopped")
+	log.Info().Msg("serverCfg stopped")
 }
 
-func startWriteToFile(ctx context.Context, cfg config.Server, metrics storages.Repository) *time.Ticker {
+func startWriteToFile(ctx context.Context, cfg *ServerCfg, metrics storages.Repository) *time.Ticker {
 	if cfg.Restore && len(cfg.StoreFile) > 0 {
 		consumer, err := fileio.NewConsumer(cfg.StoreFile)
 		if err != nil {

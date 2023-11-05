@@ -3,12 +3,10 @@ package services
 import (
 	"context"
 	"errors"
+	"github.com/dbulyk/metrics-alerting-service/internal/models"
+	"github.com/dbulyk/metrics-alerting-service/internal/utils"
 	"testing"
 	"time"
-
-	"github.com/dbulyk/metrics-alerting-service/internal/utils"
-
-	"github.com/dbulyk/metrics-alerting-service/internal/models"
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/stretchr/testify/assert"
@@ -148,7 +146,7 @@ func TestDBRepository_GetAll(t *testing.T) {
 
 	mock.ExpectQuery("^select (.+) from metrics order by id$").WillReturnRows(rows)
 
-	repo := &dbRepository{db}
+	repo := &dbRepository{db, ""}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()

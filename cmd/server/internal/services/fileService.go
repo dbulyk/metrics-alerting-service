@@ -5,15 +5,12 @@ import (
 	"crypto/hmac"
 	"errors"
 	"fmt"
-	"github.com/dbulyk/metrics-alerting-service/cmd/server/config"
+	"github.com/dbulyk/metrics-alerting-service/cmd/server/internal/fileio"
+	"github.com/dbulyk/metrics-alerting-service/cmd/server/internal/storages"
+	"github.com/dbulyk/metrics-alerting-service/internal/models"
+	"github.com/dbulyk/metrics-alerting-service/internal/utils"
 	"sync"
 	"time"
-
-	"github.com/dbulyk/metrics-alerting-service/internal/fileio"
-	"github.com/dbulyk/metrics-alerting-service/internal/models"
-	"github.com/dbulyk/metrics-alerting-service/internal/storages"
-
-	"github.com/dbulyk/metrics-alerting-service/internal/utils"
 
 	"github.com/rs/zerolog/log"
 )
@@ -34,14 +31,16 @@ type fileRepository struct {
 	metrics       []*models.Metric
 	storeInterval time.Duration
 	storeFile     string
+	key           string
 }
 
-func NewFileRepository() storages.Repository {
+func NewFileRepository(storeFile string, storeInterval time.Duration, key string) storages.Repository {
 	return &fileRepository{
 		metrics:       make([]*models.Metric, 0, 50),
 		Mutex:         sync.Mutex{},
-		storeFile:     config.GetStoreFile(),
-		storeInterval: config.GetStoreInterval(),
+		storeFile:     storeFile,
+		storeInterval: storeInterval,
+		key:           key,
 	}
 }
 
@@ -57,7 +56,7 @@ func (fr *fileRepository) Set(ctx context.Context, metric models.Metric) (*model
 	fr.Lock()
 	defer fr.Unlock()
 
-	m, err := addToStorage(&fr.metrics, metric)
+	m, err := addToStorage(&fr.metrics, metric, fr.key)
 	if err != nil {
 		log.Error().Err(err).Msgf("an error occurred in saving metric %s, it will not be added", metric.ID)
 		return nil, err
@@ -96,7 +95,7 @@ func (fr *fileRepository) Updates(ctx context.Context, metrics []models.Metric) 
 	defer fr.Unlock()
 
 	for _, metric := range metrics {
-		_, err := addToStorage(&fr.metrics, metric)
+		_, err := addToStorage(&fr.metrics, metric, fr.key)
 		if err != nil {
 			log.Error().Err(err).Msgf("an error occurred in saving metric %s, it will not be added", metric.ID)
 			continue
@@ -122,14 +121,13 @@ func (fr *fileRepository) Ping() error {
 	return nil
 }
 
-func addToStorage(metrics *[]*models.Metric, metric models.Metric) ([]*models.Metric, error) {
+func addToStorage(metrics *[]*models.Metric, metric models.Metric, key string) ([]*models.Metric, error) {
 	if metric.MType != Counter && metric.MType != Gauge {
 		log.Error().Msgf("like metric %s doesn't exist", metric.MType)
 		return nil, ErrInvalidMetricType
 	}
 
 	var mHash, s string
-	key := config.GetKey()
 	if len(key) > 0 {
 		switch metric.MType {
 		case Gauge:
