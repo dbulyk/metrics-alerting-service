@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"github.com/dbulyk/metrics-alerting-service/cmd/agent/config"
 	"log"
 	"net/http"
 	"os/signal"
@@ -12,16 +13,16 @@ import (
 )
 
 func main() {
-	agent := &http.Client{}
+	agentCfg := &config.AgentCfg{}
+	cfg, err := agentCfg.GetAgentConfig()
+	if err != nil {
+		log.Panicf("config parsing error: %v", err)
+	}
 
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
 
-	cfg, err := Get()
-	if err != nil {
-		log.Fatalf("config parsing error: %v", err)
-	}
-
+	agent := &http.Client{}
 	metrics := services.NewMetricService(cfg.ReportInterval, cfg.PollInterval)
 
 	go metrics.CollectRuntime(ctx)

@@ -1,4 +1,4 @@
-package main
+package config
 
 import (
 	"flag"
@@ -15,19 +15,18 @@ type AgentCfg struct {
 	RateLimit      int           `env:"RATE_LIMIT" envDescription:"rate limit for requests to the server"`
 }
 
-func Get() (*AgentCfg, error) {
-	agentCfg := AgentCfg{}
-	flag.StringVar(&agentCfg.Address, "a", "localhost:8080", "server address")
-	flag.DurationVar(&agentCfg.ReportInterval, "r", 10*time.Second, "interval for sending metrics to the server")
-	flag.DurationVar(&agentCfg.PollInterval, "p", 2*time.Second, "interval for polling metrics")
-	flag.StringVar(&agentCfg.Key, "k", "", "signature key")
-	flag.IntVar(&agentCfg.RateLimit, "l", 3, "rate limit for requests to the server")
+func (a *AgentCfg) GetAgentConfig() (*AgentCfg, error) {
+	flag.StringVar(&a.Address, "a", "localhost:8080", "server address")
+	flag.DurationVar(&a.ReportInterval, "r", 10*time.Second, "interval for sending metrics to the server")
+	flag.DurationVar(&a.PollInterval, "p", 2*time.Second, "interval for polling metrics")
+	flag.StringVar(&a.Key, "k", "", "signature key")
+	flag.IntVar(&a.RateLimit, "l", 3, "rate limit for requests to the server")
 	flag.Parse()
 
-	err := env.Parse(&agentCfg)
+	err := env.Parse(a)
 	if err != nil {
 		return nil, err
 	}
 
-	return &agentCfg, nil
+	return a, nil
 }
