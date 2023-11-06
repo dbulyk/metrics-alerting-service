@@ -47,7 +47,6 @@ func NewMetricService(reportInterval time.Duration, pollInterval time.Duration) 
 func (ms *MetricService) CollectRuntime(ctx context.Context) {
 	ticker := time.NewTicker(ms.pollInterval)
 	defer ticker.Stop()
-	metrics := make([]models.Metric, 0, 100)
 
 	for {
 		select {
@@ -58,6 +57,7 @@ func (ms *MetricService) CollectRuntime(ctx context.Context) {
 			runtime.ReadMemStats(&rtm)
 			randomValue := rand.Float64()
 			countValue := ms.pollCount.Load()
+			metrics := make([]models.Metric, 0, 100)
 			metrics = []models.Metric{
 				{
 					ID:    "Alloc",
@@ -218,7 +218,6 @@ func (ms *MetricService) CollectRuntime(ctx context.Context) {
 func (ms *MetricService) CollectAdvanced(ctx context.Context) {
 	ticker := time.NewTicker(ms.pollInterval)
 	defer ticker.Stop()
-	metrics := make([]models.Metric, 0, 50)
 
 	for {
 		select {
@@ -237,6 +236,7 @@ func (ms *MetricService) CollectAdvanced(ctx context.Context) {
 				continue
 			}
 
+			metrics := make([]models.Metric, 0, 50)
 			metrics = []models.Metric{
 				{
 					ID:    "TotalMemory",
