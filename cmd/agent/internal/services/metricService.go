@@ -57,8 +57,7 @@ func (ms *MetricService) CollectRuntime(ctx context.Context) {
 			runtime.ReadMemStats(&rtm)
 			randomValue := rand.Float64()
 			countValue := ms.pollCount.Load()
-			metrics := make([]models.Metric, 0, 100)
-			metrics = []models.Metric{
+			metrics := []models.Metric{
 				{
 					ID:    "Alloc",
 					MType: "gauge",
@@ -236,8 +235,7 @@ func (ms *MetricService) CollectAdvanced(ctx context.Context) {
 				continue
 			}
 
-			metrics := make([]models.Metric, 0, 50)
-			metrics = []models.Metric{
+			metrics := []models.Metric{
 				{
 					ID:    "TotalMemory",
 					MType: "gauge",
