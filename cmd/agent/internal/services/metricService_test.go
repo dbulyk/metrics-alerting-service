@@ -50,12 +50,14 @@ func TestMetricService_CollectRuntime(t *testing.T) {
 	go metrics.CollectRuntime(ctx)
 	time.Sleep(time.Second * 5)
 
+	metrics.Lock()
 	assert.NotEqual(t, len(metrics.rtmMetrics), 0, "ожидался набор метрик, но получен пустой ответ")
 	for _, m := range metrics.rtmMetrics {
 		if m.ID == "" || m.MType == "" || m.Value == nil && m.Delta == nil {
 			t.Errorf("ожидалось что все метрики будут иметь имя, тип и значение, но получено %v", m)
 		}
 	}
+	metrics.Unlock()
 }
 
 func TestMetricService_CollectAdvancedMetrics(t *testing.T) {
@@ -66,10 +68,12 @@ func TestMetricService_CollectAdvancedMetrics(t *testing.T) {
 	go metrics.CollectRuntime(ctx)
 	time.Sleep(time.Second * 5)
 
+	metrics.Lock()
 	assert.NotEqual(t, len(metrics.rtmMetrics), 0, "ожидался набор метрик, но получен пустой ответ")
 	for _, m := range metrics.rtmMetrics {
 		if m.ID == "" || m.MType == "" || m.Value == nil && m.Delta == nil {
 			t.Errorf("ожидалось что все метрики будут иметь имя, тип и значение, но получено %v", m)
 		}
 	}
+	metrics.Unlock()
 }
