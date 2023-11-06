@@ -5,9 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/dbulyk/metrics-alerting-service/cmd/server/internal/services"
-	"github.com/dbulyk/metrics-alerting-service/internal/models"
-	"github.com/dbulyk/metrics-alerting-service/internal/utils"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -15,6 +12,10 @@ import (
 	"strconv"
 	"testing"
 	"time"
+
+	"github.com/dbulyk/metrics-alerting-service/cmd/server/internal/services"
+	"github.com/dbulyk/metrics-alerting-service/internal/models"
+	"github.com/dbulyk/metrics-alerting-service/internal/utils"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/rs/zerolog/log"

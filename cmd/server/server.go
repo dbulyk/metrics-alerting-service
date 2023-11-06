@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+
 	"github.com/dbulyk/metrics-alerting-service/cmd/server/internal/fileio"
 	"github.com/dbulyk/metrics-alerting-service/cmd/server/internal/services"
 
@@ -91,7 +92,7 @@ func main() {
 
 	go func() {
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			log.Error().Timestamp().Err(err).Msg("serverCfg error")
+			log.Error().Timestamp().Err(err).Msg("server error")
 		}
 	}()
 
@@ -113,11 +114,11 @@ func shutdown(ctx context.Context, cfg *ServerCfg, srv *http.Server, mem storage
 	}
 
 	if err := srv.Shutdown(ctx); err != nil {
-		log.Error().Timestamp().Err(err).Msg("serverCfg stop error")
+		log.Error().Timestamp().Err(err).Msg("server stop error")
 	}
 
 	<-ctx.Done()
-	log.Info().Msg("serverCfg stopped")
+	log.Info().Msg("server stopped")
 }
 
 func startWriteToFile(ctx context.Context, cfg *ServerCfg, metrics storages.Repository) *time.Ticker {

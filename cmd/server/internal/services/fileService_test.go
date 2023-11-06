@@ -3,12 +3,13 @@ package services
 import (
 	"context"
 	"encoding/json"
-	"github.com/dbulyk/metrics-alerting-service/cmd/server/internal/fileio"
-	"github.com/dbulyk/metrics-alerting-service/internal/models"
-	"github.com/dbulyk/metrics-alerting-service/internal/utils"
 	"os"
 	"testing"
 	"time"
+
+	"github.com/dbulyk/metrics-alerting-service/cmd/server/internal/fileio"
+	"github.com/dbulyk/metrics-alerting-service/internal/models"
+	"github.com/dbulyk/metrics-alerting-service/internal/utils"
 
 	"github.com/rs/zerolog/log"
 

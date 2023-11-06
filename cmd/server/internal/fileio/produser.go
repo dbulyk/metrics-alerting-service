@@ -3,9 +3,10 @@ package fileio
 import (
 	"context"
 	"encoding/json"
+	"os"
+
 	"github.com/dbulyk/metrics-alerting-service/cmd/server/internal/storages"
 	"github.com/dbulyk/metrics-alerting-service/internal/models"
-	"os"
 
 	"github.com/rs/zerolog/log"
 )

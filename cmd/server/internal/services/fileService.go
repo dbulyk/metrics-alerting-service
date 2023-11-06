@@ -5,12 +5,13 @@ import (
 	"crypto/hmac"
 	"errors"
 	"fmt"
+	"sync"
+	"time"
+
 	"github.com/dbulyk/metrics-alerting-service/cmd/server/internal/fileio"
 	"github.com/dbulyk/metrics-alerting-service/cmd/server/internal/storages"
 	"github.com/dbulyk/metrics-alerting-service/internal/models"
 	"github.com/dbulyk/metrics-alerting-service/internal/utils"
-	"sync"
-	"time"
 
 	"github.com/rs/zerolog/log"
 )
