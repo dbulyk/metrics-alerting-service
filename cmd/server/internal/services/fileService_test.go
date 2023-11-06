@@ -18,7 +18,7 @@ import (
 )
 
 func TestSetMetric(t *testing.T) {
-	storage := NewFileRepository("tmp/devops-metrics-db.json", time.Second, "test")
+	storage := NewFileRepository("tmp/devops-metrics-db-test.json", time.Second, "test")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -63,7 +63,7 @@ func TestSetMetric(t *testing.T) {
 }
 
 func TestGetMetric(t *testing.T) {
-	storage := NewFileRepository("tmp/devops-metrics-db.json", time.Second, "test")
+	storage := NewFileRepository("tmp/devops-metrics-db-test.json", time.Second, "test")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -135,7 +135,7 @@ func TestConsumer_Read(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	mem := NewFileRepository("tmp/devops-metrics-db.json", time.Second, "test")
+	mem := NewFileRepository("tmp/devops-metrics-db-test.json", time.Second, "test")
 	v := 123.15
 	_, err = mem.Set(ctx, models.Metric{
 		ID:    "testGauge",
@@ -176,7 +176,7 @@ func TestConsumer_Read(t *testing.T) {
 		}
 	}(consumer)
 
-	mem1 := NewFileRepository("tmp/devops-metrics-db.json", time.Second, "test")
+	mem1 := NewFileRepository("tmp/devops-metrics-db-test.json", time.Second, "test")
 	metrics, err := consumer.Read()
 	require.NoError(t, err)
 
@@ -216,7 +216,7 @@ func TestRestoreMetricsFromFile(t *testing.T) {
 		dumpfile.Close()
 	}()
 
-	mem := NewFileRepository("tmp/devops-metrics-db.json", time.Second, "")
+	mem := NewFileRepository("tmp/devops-metrics-db-test.json", time.Second, "")
 
 	consumer, err := fileio.NewConsumer(dumpfile.Name())
 	require.NoError(t, err)

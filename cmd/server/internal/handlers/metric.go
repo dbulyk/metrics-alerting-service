@@ -11,6 +11,7 @@ import (
 	"html/template"
 	"io"
 	"net/http"
+	"path/filepath"
 	"strconv"
 	"time"
 
@@ -161,9 +162,10 @@ func (h *handler) GetAll(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 	metrics, _ := h.repository.GetAll(ctx)
 
-	tmpl, err := template.ParseFiles("templates/index.gohtml")
+	tmpl, err := template.ParseFiles(filepath.Join("cmd", "server", "internal", "templates", "index.gohtml"))
 	if err != nil {
 		log.Error().Err(err).Msg("template parsing error")
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
@@ -171,6 +173,7 @@ func (h *handler) GetAll(w http.ResponseWriter, r *http.Request) {
 	err = tmpl.Execute(w, metrics)
 	if err != nil {
 		log.Error().Err(err).Msg("template execution error")
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 }
