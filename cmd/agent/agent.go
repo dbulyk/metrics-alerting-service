@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"log"
-	"log/slog"
 	"net/http"
 	"os/signal"
 	"syscall"
@@ -34,5 +33,5 @@ func main() {
 	defer cancel()
 
 	<-shutdownContext.Done()
-	slog.Info("agent stopped")
+	log.Print("agent stopped")
 }
