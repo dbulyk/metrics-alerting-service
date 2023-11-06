@@ -2,10 +2,11 @@ package services
 
 import (
 	"context"
-	"github.com/stretchr/testify/assert"
 	"net/http"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
 
 	"github.com/dbulyk/metrics-alerting-service/internal/models"
 	"github.com/jarcoal/httpmock"
