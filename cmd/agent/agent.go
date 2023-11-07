@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
@@ -30,13 +31,20 @@ func main() {
 	defer cancel()
 
 	agent := &http.Client{}
-	metrics := services.NewMetricService(cfg.ReportInterval, cfg.PollInterval)
+	metrics := services.NewMetricsService(cfg.ReportInterval, cfg.PollInterval, cfg.RateLimit)
 
 	go metrics.CollectRuntime(ctx)
 	go metrics.CollectAdvanced(ctx)
-	go metrics.Report(ctx, agent, cfg.Address, cfg.Key)
+	go metrics.MergeAndPushToQueue(ctx, cfg.Key)
+
+	wg := &sync.WaitGroup{}
+	for i := 0; i < cfg.RateLimit; i++ {
+		wg.Add(1)
+		go metrics.Send(ctx, wg, agent, cfg.Address)
+	}
 
 	<-ctx.Done()
+	wg.Wait()
 	shutdownContext, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 

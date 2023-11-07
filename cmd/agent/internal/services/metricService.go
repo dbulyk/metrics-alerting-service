@@ -21,30 +21,35 @@ import (
 	"github.com/shirou/gopsutil/v3/mem"
 )
 
-type MetricService struct {
+type MetricsService struct {
 	sync.Mutex
-	rtmMetrics      []models.Metric
+	ch              chan []models.Metric
+	runtimeMetrics  []models.Metric
 	advancedMetrics []models.Metric
 	pollCount       *atomic.Int64
 	reportInterval  time.Duration
 	pollInterval    time.Duration
 }
 
-func NewMetricService(reportInterval time.Duration, pollInterval time.Duration) *MetricService {
+func NewMetricsService(reportInterval time.Duration, pollInterval time.Duration, rateLimit int) *MetricsService {
 	pollCount := atomic.Int64{}
 	pollCount.Store(1)
+	runtimeMetrics := make([]models.Metric, 0, 50)
+	advancedMetrics := make([]models.Metric, 0, 50)
+	ch := make(chan []models.Metric, rateLimit)
 
-	return &MetricService{
+	return &MetricsService{
 		Mutex:           sync.Mutex{},
-		rtmMetrics:      make([]models.Metric, 0, 100),
-		advancedMetrics: make([]models.Metric, 0, 50),
 		reportInterval:  reportInterval,
 		pollInterval:    pollInterval,
 		pollCount:       &pollCount,
+		runtimeMetrics:  runtimeMetrics,
+		advancedMetrics: advancedMetrics,
+		ch:              ch,
 	}
 }
 
-func (ms *MetricService) CollectRuntime(ctx context.Context) {
+func (ms *MetricsService) CollectRuntime(ctx context.Context) {
 	ticker := time.NewTicker(ms.pollInterval)
 	defer ticker.Stop()
 
@@ -205,16 +210,16 @@ func (ms *MetricService) CollectRuntime(ctx context.Context) {
 				},
 			}
 
+			log.Info().Msgf("PollCount: %d", countValue)
 			ms.Lock()
 			ms.pollCount.Add(1)
-			ms.rtmMetrics = metrics
+			ms.runtimeMetrics = metrics
 			ms.Unlock()
-			log.Info().Msg("runtime metrics collected")
 		}
 	}
 }
 
-func (ms *MetricService) CollectAdvanced(ctx context.Context) {
+func (ms *MetricsService) CollectAdvanced(ctx context.Context) {
 	ticker := time.NewTicker(ms.pollInterval)
 	defer ticker.Stop()
 
@@ -258,23 +263,24 @@ func (ms *MetricService) CollectAdvanced(ctx context.Context) {
 			ms.Lock()
 			ms.advancedMetrics = metrics
 			ms.Unlock()
-			log.Info().Msg("advanced metrics collected")
 		}
 	}
 }
 
-func (ms *MetricService) Report(ctx context.Context, client *http.Client, address string, key string) {
+func (ms *MetricsService) MergeAndPushToQueue(ctx context.Context, key string) {
 	ticker := time.NewTicker(ms.reportInterval)
 	defer ticker.Stop()
 
 	for {
 		select {
 		case <-ctx.Done():
+			close(ms.ch)
 			return
 		case <-ticker.C:
-			metrics := make([]models.Metric, 0, 150)
+			metrics := make([]models.Metric, 0, 100)
+
 			ms.Lock()
-			metrics = append(metrics, ms.rtmMetrics...)
+			metrics = append(metrics, ms.runtimeMetrics...)
 			metrics = append(metrics, ms.advancedMetrics...)
 			ms.Unlock()
 
@@ -288,46 +294,54 @@ func (ms *MetricService) Report(ctx context.Context, client *http.Client, addres
 					switch metrics[i].MType {
 					case "gauge":
 						metrics[i].Hash = utils.Hash(fmt.Sprintf("%s:%s:%f", metrics[i].ID, metrics[i].MType, *metrics[i].Value), key)
-						log.Info().Msgf("hash: %s, name: %s", metrics[i].Hash, metrics[i].ID)
 					case "counter":
 						metrics[i].Hash = utils.Hash(fmt.Sprintf("%s:%s:%d", metrics[i].ID, metrics[i].MType, *metrics[i].Delta), key)
-						log.Info().Msgf("hash: %s, name: %s", metrics[i].Hash, metrics[i].ID)
 					}
 				}
 			}
 
-			jsonData, err := json.Marshal(metrics)
-			if err != nil {
-				log.Error().Err(err).Msg("error marshalling metrics")
-				continue
-			}
-
-			request, err := http.NewRequest(http.MethodPost, "http://"+address+"/updates/", bytes.NewBuffer(jsonData))
-			if err != nil {
-				log.Error().Err(err).Msg("error creating request")
-				continue
-			}
-			request.Header.Set("Content-Type", "application/json")
-
-			response, err := client.Do(request)
-			if err != nil {
-				log.Error().Err(err).Msg("error sending request")
-				continue
-			}
-
-			_, err = io.ReadAll(response.Body)
-			if err != nil {
-				log.Error().Err(err).Msg("error reading response")
-				continue
-			}
-
-			err = response.Body.Close()
-			if err != nil {
-				log.Error().Err(err).Msg("error closing response body")
-				continue
-			}
+			ms.ch <- metrics
+			ms.Lock()
 			ms.pollCount.Swap(1)
-			log.Info().Msg("metrics sent")
+			ms.Unlock()
+			log.Info().Msg("metrics pushed to queue")
+		}
+	}
+}
+
+func (ms *MetricsService) Send(ctx context.Context, wg *sync.WaitGroup, client *http.Client, address string) {
+	defer wg.Done()
+
+	for metrics := range ms.ch {
+		jsonData, err := json.Marshal(metrics)
+		if err != nil {
+			log.Error().Err(err).Msg("error marshalling metrics")
+			continue
+		}
+
+		request, err := http.NewRequestWithContext(ctx, http.MethodPost, "http://"+address+"/updates/", bytes.NewBuffer(jsonData))
+		if err != nil {
+			log.Error().Err(err).Msg("error creating request")
+			continue
+		}
+		request.Header.Set("Content-Type", "application/json")
+
+		response, err := client.Do(request)
+		if err != nil {
+			log.Error().Err(err).Msg("error sending request")
+			continue
+		}
+
+		_, err = io.ReadAll(response.Body)
+		if err != nil {
+			log.Error().Err(err).Msg("error reading response")
+			continue
+		}
+
+		err = response.Body.Close()
+		if err != nil {
+			log.Error().Err(err).Msg("error closing response body")
+			continue
 		}
 	}
 }
