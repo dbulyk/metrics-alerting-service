@@ -5,8 +5,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/rs/zerolog/log"
 	"io"
-	"log"
 	"math"
 	"math/rand"
 	"net/http"
@@ -209,7 +209,7 @@ func (ms *MetricService) CollectRuntime(ctx context.Context) {
 			ms.pollCount.Add(1)
 			ms.rtmMetrics = metrics
 			ms.Unlock()
-			log.Print("runtime metrics collected")
+			log.Info().Msg("runtime metrics collected")
 		}
 	}
 }
@@ -225,13 +225,13 @@ func (ms *MetricService) CollectAdvanced(ctx context.Context) {
 		case <-ticker.C:
 			memory, err := mem.VirtualMemory()
 			if err != nil {
-				log.Printf("An error occurred while collecting metrics. Error: %s", err.Error())
+				log.Error().Err(err).Msg("error collecting memory metrics")
 				continue
 			}
 
 			cpuUtilization, err := cpu.Percent(0, true)
 			if err != nil {
-				log.Printf("An error occurred while collecting metrics. Error: %s", err.Error())
+				log.Error().Err(err).Msg("error collecting cpu metrics")
 				continue
 			}
 
@@ -258,7 +258,7 @@ func (ms *MetricService) CollectAdvanced(ctx context.Context) {
 			ms.Lock()
 			ms.advancedMetrics = metrics
 			ms.Unlock()
-			log.Print("advanced metrics collected")
+			log.Info().Msg("advanced metrics collected")
 		}
 	}
 }
@@ -279,7 +279,7 @@ func (ms *MetricService) Report(ctx context.Context, client *http.Client, addres
 			ms.Unlock()
 
 			if len(metrics) == 0 {
-				log.Print("an empty collection came in")
+				log.Warn().Msg("no metrics to send")
 				continue
 			}
 
@@ -288,44 +288,46 @@ func (ms *MetricService) Report(ctx context.Context, client *http.Client, addres
 					switch metrics[i].MType {
 					case "gauge":
 						metrics[i].Hash = utils.Hash(fmt.Sprintf("%s:%s:%f", metrics[i].ID, metrics[i].MType, *metrics[i].Value), key)
+						log.Info().Msgf("hash: %s, name: %s", metrics[i].Hash, metrics[i].ID)
 					case "counter":
 						metrics[i].Hash = utils.Hash(fmt.Sprintf("%s:%s:%d", metrics[i].ID, metrics[i].MType, *metrics[i].Delta), key)
+						log.Info().Msgf("hash: %s, name: %s", metrics[i].Hash, metrics[i].ID)
 					}
 				}
 			}
 
 			jsonData, err := json.Marshal(metrics)
 			if err != nil {
-				log.Printf("An error occurred while marshalling metrics. Error: %s", err.Error())
+				log.Error().Err(err).Msg("error marshalling metrics")
 				continue
 			}
 
 			request, err := http.NewRequest(http.MethodPost, "http://"+address+"/updates/", bytes.NewBuffer(jsonData))
 			if err != nil {
-				log.Printf("An error occurred while creating request. Error: %s", err.Error())
+				log.Error().Err(err).Msg("error creating request")
 				continue
 			}
 			request.Header.Set("Content-Type", "application/json")
 
 			response, err := client.Do(request)
 			if err != nil {
-				log.Printf("An error occurred while sending request. Error: %s", err.Error())
+				log.Error().Err(err).Msg("error sending request")
 				continue
 			}
 
 			_, err = io.ReadAll(response.Body)
 			if err != nil {
-				log.Printf("An error occurred while reading response. Error: %s", err.Error())
+				log.Error().Err(err).Msg("error reading response")
 				continue
 			}
 
 			err = response.Body.Close()
 			if err != nil {
-				log.Printf("An error occurred while closing response body. Error: %s", err.Error())
+				log.Error().Err(err).Msg("error closing response body")
 				continue
 			}
 			ms.pollCount.Swap(1)
-			log.Print("metrics sent")
+			log.Info().Msg("metrics sent")
 		}
 	}
 }

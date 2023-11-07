@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+
 	"github.com/dbulyk/metrics-alerting-service/cmd/server/config"
 
 	"github.com/dbulyk/metrics-alerting-service/cmd/server/internal/fileio"

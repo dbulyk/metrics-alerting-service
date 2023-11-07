@@ -2,21 +2,28 @@ package main
 
 import (
 	"context"
-	"github.com/dbulyk/metrics-alerting-service/cmd/agent/config"
-	"log"
 	"net/http"
+	"os"
 	"os/signal"
 	"syscall"
 	"time"
+
+	"github.com/dbulyk/metrics-alerting-service/cmd/agent/config"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 
 	"github.com/dbulyk/metrics-alerting-service/cmd/agent/internal/services"
 )
 
 func main() {
+	output := zerolog.ConsoleWriter{Out: os.Stderr}
+	zerolog.SetGlobalLevel(zerolog.InfoLevel)
+	log.Logger = zerolog.New(output).With().Timestamp().Logger()
+
 	agentCfg := &config.AgentCfg{}
 	cfg, err := agentCfg.GetAgentConfig()
 	if err != nil {
-		log.Panicf("config parsing error: %v", err)
+		log.Panic().Err(err).Msg("config parsing error")
 	}
 
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
@@ -34,5 +41,5 @@ func main() {
 	defer cancel()
 
 	<-shutdownContext.Done()
-	log.Print("agent stopped")
+	log.Info().Msg("agent shutdown")
 }
