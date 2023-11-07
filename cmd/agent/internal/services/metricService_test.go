@@ -55,6 +55,7 @@ func TestMetricService_MergeAndPushToQueue(t *testing.T) {
 	go metrics.CollectRuntime(ctx)
 	metrics.MergeAndPushToQueue(ctx, "test")
 
+	metrics.Lock()
 	assert.NotNil(t, metrics.ch, "channel was expected, but nil was received")
 	mRtm, ok := <-metrics.ch
 	assert.Truef(t, ok, "channel was expected to be open, but it was closed")
@@ -64,6 +65,7 @@ func TestMetricService_MergeAndPushToQueue(t *testing.T) {
 			t.Errorf("it was expected that all metrics would have name, type and value, but %v was received.", m)
 		}
 	}
+	metrics.Unlock()
 }
 
 func TestMetricService_Send(t *testing.T) {
