@@ -294,8 +294,10 @@ func (ms *MetricsService) MergeAndPushToQueue(ctx context.Context, key string) {
 					switch metrics[i].MType {
 					case "gauge":
 						metrics[i].Hash = utils.Hash(fmt.Sprintf("%s:%s:%f", metrics[i].ID, metrics[i].MType, *metrics[i].Value), key)
+						log.Info().Msgf("Hash: %s, id: %s, type: %s", metrics[i].Hash, metrics[i].ID, metrics[i].MType)
 					case "counter":
 						metrics[i].Hash = utils.Hash(fmt.Sprintf("%s:%s:%d", metrics[i].ID, metrics[i].MType, *metrics[i].Delta), key)
+						log.Info().Msgf("Hash: %s, id: %s, type: %s", metrics[i].Hash, metrics[i].ID, metrics[i].MType)
 					}
 				}
 			}
