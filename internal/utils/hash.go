@@ -8,8 +8,8 @@ import (
 )
 
 func Hash(message, key string) string {
-	log.Info().Msgf("message: %s, key: %s", message, key)
 	h := hmac.New(sha256.New, []byte(key))
 	h.Write([]byte(message))
+	log.Info().Msgf("message: %s, key: %s, hash: %x", message, key, h.Sum(nil))
 	return fmt.Sprintf("%x", h.Sum(nil))
 }
