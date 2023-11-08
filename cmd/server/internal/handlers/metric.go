@@ -204,6 +204,7 @@ func (h *handler) GetWithJSON(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(err.Error()))
 		return
 	}
+	log.Info().Msgf("metric %s retrieved. hash: %x, type: %s, delta: %d, value: %f", m.ID, m.Hash, m.MType, m.Delta, m.Value)
 
 	w.Header().Set("Content-Type", "application/json")
 	if err = json.NewEncoder(w).Encode(metric); err != nil {
