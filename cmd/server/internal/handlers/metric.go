@@ -279,6 +279,7 @@ func (h *handler) Updates(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	log.Info().Msgf("metrics returned: %v", metricsResp)
 	w.Header().Set("Content-Type", "application/json")
 	if err = json.NewEncoder(w).Encode(metricsResp); err != nil {
 		log.Error().Err(err).Msg("JSON encoding error")
