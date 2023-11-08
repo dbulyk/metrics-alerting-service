@@ -35,6 +35,8 @@ func main() {
 
 	go metrics.CollectRuntime(ctx)
 	go metrics.CollectAdvanced(ctx)
+
+	time.Sleep(100 * time.Millisecond)
 	go metrics.MergeAndPushToQueue(ctx, cfg.Key)
 
 	wg := &sync.WaitGroup{}
