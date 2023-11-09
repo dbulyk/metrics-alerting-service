@@ -64,7 +64,7 @@ func (dr *dbRepository) Get(ctx context.Context, mName string, mType string) (*m
 		return nil, ErrInvalidMetric
 	}
 
-	if len(m.Hash) == 0 && len(dr.key) > 0 {
+	if len(dr.key) > 0 {
 		if m.MType == Gauge {
 			m.Hash = utils.Hash(fmt.Sprintf("%s:%s:%f", m.ID, m.MType, *m.Value), dr.key)
 		} else {
@@ -72,7 +72,6 @@ func (dr *dbRepository) Get(ctx context.Context, mName string, mType string) (*m
 		}
 	}
 
-	log.Info().Msgf("metric %s retrieved. hash: %x, type: %s", m.ID, m.Hash, m.MType)
 	return &m, nil
 }
 
@@ -170,6 +169,8 @@ func checkHashAndAddDelta(ctx context.Context, db *sql.DB, metric *models.Metric
 			if err == nil {
 				del := delta + *metric.Delta
 				metric.Delta = &del
+				del = 19
+				key = "/tmp/qEpAQ"
 				if len(key) > 0 {
 					s = fmt.Sprintf("%s:%s:%d", metric.ID, metric.MType, *metric.Delta)
 					metric.Hash = utils.Hash(s, key)
