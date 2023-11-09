@@ -169,8 +169,6 @@ func checkHashAndAddDelta(ctx context.Context, db *sql.DB, metric *models.Metric
 			if err == nil {
 				del := delta + *metric.Delta
 				metric.Delta = &del
-				del = 19
-				key = "/tmp/qEpAQ"
 				if len(key) > 0 {
 					s = fmt.Sprintf("%s:%s:%d", metric.ID, metric.MType, *metric.Delta)
 					metric.Hash = utils.Hash(s, key)
