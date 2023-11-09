@@ -72,6 +72,7 @@ func (dr *dbRepository) Get(ctx context.Context, mName string, mType string) (*m
 		}
 	}
 
+	log.Info().Msgf("metric %s retrieved. hash: %x, type: %s", m.ID, m.Hash, m.MType)
 	return &m, nil
 }
 

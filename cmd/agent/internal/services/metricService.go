@@ -210,7 +210,6 @@ func (ms *MetricsService) CollectRuntime(ctx context.Context) {
 				},
 			}
 
-			log.Info().Msgf("PollCount: %d", countValue)
 			ms.Lock()
 			ms.pollCount.Add(1)
 			ms.runtimeMetrics = metrics
