@@ -3,11 +3,11 @@ package services
 import (
 	"context"
 	"encoding/json"
+	fileio2 "github.com/dbulyk/metrics-alerting-service/internal/fileio"
 	"os"
 	"testing"
 	"time"
 
-	"github.com/dbulyk/metrics-alerting-service/cmd/server/internal/fileio"
 	"github.com/dbulyk/metrics-alerting-service/internal/models"
 	"github.com/dbulyk/metrics-alerting-service/internal/utils"
 
@@ -114,9 +114,9 @@ func TestNewConsumer(t *testing.T) {
 		dumpfile.Close()
 	}()
 
-	consumer, err := fileio.NewConsumer(dumpfile.Name())
+	consumer, err := fileio2.NewConsumer(dumpfile.Name())
 	require.NoError(t, err)
-	defer func(consumer *fileio.Consumer) {
+	defer func(consumer *fileio2.Consumer) {
 		err = consumer.Close()
 		if err != nil {
 			log.Error().Err(err).Msg("ошибка закрытия файла")
@@ -168,9 +168,9 @@ func TestConsumer_Read(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	consumer, err := fileio.NewConsumer(dumpfile.Name())
+	consumer, err := fileio2.NewConsumer(dumpfile.Name())
 	require.NoError(t, err)
-	defer func(consumer *fileio.Consumer) {
+	defer func(consumer *fileio2.Consumer) {
 		err = consumer.Close()
 		if err != nil {
 			log.Error().Err(err).Msg("ошибка закрытия файла")
@@ -196,7 +196,7 @@ func TestConsumer_Close(t *testing.T) {
 	dumpfile, err := os.CreateTemp(tmpDir, "*.json")
 	require.NoError(t, err)
 
-	consumer, err := fileio.NewConsumer(dumpfile.Name())
+	consumer, err := fileio2.NewConsumer(dumpfile.Name())
 	require.NoError(t, err)
 
 	defer func() {
@@ -219,9 +219,9 @@ func TestRestoreMetricsFromFile(t *testing.T) {
 
 	mem := NewFileRepository("tmp/devops-metrics-db-test.json", time.Second, "")
 
-	consumer, err := fileio.NewConsumer(dumpfile.Name())
+	consumer, err := fileio2.NewConsumer(dumpfile.Name())
 	require.NoError(t, err)
-	defer func(consumer *fileio.Consumer) {
+	defer func(consumer *fileio2.Consumer) {
 		err = consumer.Close()
 		if err != nil {
 			log.Error().Err(err).Msg("ошибка закрытия файла")
@@ -251,9 +251,9 @@ func TestRestoreMetricsFromFile(t *testing.T) {
 	})
 	assert.NoError(t, err)
 
-	producer, err := fileio.NewProducer(dumpfile.Name())
+	producer, err := fileio2.NewProducer(dumpfile.Name())
 	require.NoError(t, err)
-	defer func(producer *fileio.Producer) {
+	defer func(producer *fileio2.Producer) {
 		err = producer.Close()
 		if err != nil {
 			log.Error().Err(err).Msg("ошибка закрытия файла")

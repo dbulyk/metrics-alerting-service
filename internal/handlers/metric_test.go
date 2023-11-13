@@ -13,7 +13,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dbulyk/metrics-alerting-service/cmd/server/internal/services"
+	"github.com/dbulyk/metrics-alerting-service/internal/services"
+
 	"github.com/dbulyk/metrics-alerting-service/internal/models"
 	"github.com/dbulyk/metrics-alerting-service/internal/utils"
 
@@ -311,13 +312,6 @@ func TestHandler_UpdateWithJSON(t *testing.T) {
 }
 
 func TestHandler_GetAll(t *testing.T) {
-	originalDir, err := os.Getwd()
-	assert.NoError(t, err)
-	defer os.Chdir(originalDir)
-
-	err = os.Chdir("../../")
-	assert.NoError(t, err)
-
 	mem := services.NewFileRepository("tmp/devops-metrics-db-test.json", time.Second, "test")
 
 	r := chi.NewRouter()

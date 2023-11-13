@@ -7,7 +7,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/dbulyk/metrics-alerting-service/cmd/server/internal/storages"
+	"github.com/dbulyk/metrics-alerting-service/internal/storages"
+
 	"github.com/dbulyk/metrics-alerting-service/internal/models"
 	"github.com/dbulyk/metrics-alerting-service/internal/utils"
 	"github.com/golang-migrate/migrate/v4"

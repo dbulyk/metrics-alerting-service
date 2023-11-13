@@ -9,11 +9,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/dbulyk/metrics-alerting-service/cmd/agent/config"
+	"github.com/dbulyk/metrics-alerting-service/internal/services"
+
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
-
-	"github.com/dbulyk/metrics-alerting-service/cmd/agent/internal/services"
 )
 
 func main() {
@@ -21,7 +20,7 @@ func main() {
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 	log.Logger = zerolog.New(output).With().Timestamp().Logger()
 
-	agentCfg := &config.AgentCfg{}
+	agentCfg := &AgentCfg{}
 	cfg, err := agentCfg.GetAgentConfig()
 	if err != nil {
 		log.Panic().Err(err).Msg("config parsing error")

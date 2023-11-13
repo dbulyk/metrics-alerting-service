@@ -5,14 +5,11 @@ import (
 	"database/sql"
 	"errors"
 
-	"github.com/dbulyk/metrics-alerting-service/cmd/server/config"
-
-	"github.com/dbulyk/metrics-alerting-service/cmd/server/internal/fileio"
-	"github.com/dbulyk/metrics-alerting-service/cmd/server/internal/services"
-
-	"github.com/dbulyk/metrics-alerting-service/cmd/server/internal/handlers"
-	"github.com/dbulyk/metrics-alerting-service/cmd/server/internal/middlewares"
-	"github.com/dbulyk/metrics-alerting-service/cmd/server/internal/storages"
+	"github.com/dbulyk/metrics-alerting-service/internal/fileio"
+	"github.com/dbulyk/metrics-alerting-service/internal/handlers"
+	"github.com/dbulyk/metrics-alerting-service/internal/middlewares"
+	"github.com/dbulyk/metrics-alerting-service/internal/services"
+	"github.com/dbulyk/metrics-alerting-service/internal/storages"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 
@@ -36,7 +33,7 @@ func main() {
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 	log.Logger = zerolog.New(output).With().Timestamp().Logger()
 
-	serverCfg := &config.ServerCfg{}
+	serverCfg := &ServerCfg{}
 	cfg := serverCfg.Get()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -102,7 +99,7 @@ func main() {
 	shutdown(ctx, cfg, srv, metrics)
 }
 
-func shutdown(ctx context.Context, cfg *config.ServerCfg, srv *http.Server, mem storages.Repository) {
+func shutdown(ctx context.Context, cfg *ServerCfg, srv *http.Server, mem storages.Repository) {
 	if len(cfg.StoreFile) > 0 && len(cfg.DatabaseDsn) == 0 {
 		producer, err := fileio.NewProducer(cfg.StoreFile)
 		if err != nil {
@@ -123,7 +120,7 @@ func shutdown(ctx context.Context, cfg *config.ServerCfg, srv *http.Server, mem 
 	log.Info().Msg("server stopped")
 }
 
-func startWriteToFile(ctx context.Context, cfg *config.ServerCfg, metrics storages.Repository) *time.Ticker {
+func startWriteToFile(ctx context.Context, cfg *ServerCfg, metrics storages.Repository) *time.Ticker {
 	if cfg.Restore && len(cfg.StoreFile) > 0 {
 		consumer, err := fileio.NewConsumer(cfg.StoreFile)
 		if err != nil {

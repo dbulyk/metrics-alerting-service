@@ -12,8 +12,9 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/dbulyk/metrics-alerting-service/cmd/server/internal/services"
-	"github.com/dbulyk/metrics-alerting-service/cmd/server/internal/storages"
+	"github.com/dbulyk/metrics-alerting-service/internal/services"
+	"github.com/dbulyk/metrics-alerting-service/internal/storages"
+
 	"github.com/dbulyk/metrics-alerting-service/internal/models"
 
 	"github.com/go-chi/chi/v5"
@@ -163,7 +164,7 @@ func (h *handler) GetAll(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 	metrics, _ := h.repository.GetAll(ctx)
 
-	tmpl, err := template.ParseFiles(filepath.Join("cmd", "server", "internal", "templates", "index.gohtml"))
+	tmpl, err := template.ParseFiles(filepath.Join("internal", "templates", "index.gohtml"))
 	if err != nil {
 		log.Error().Err(err).Msg("template parsing error")
 		w.WriteHeader(http.StatusInternalServerError)
@@ -219,6 +220,7 @@ func (h *handler) GetWithText(w http.ResponseWriter, r *http.Request) {
 		err := Body.Close()
 		if err != nil {
 			log.Error().Err(err).Msg("request body closing error")
+			return
 		}
 	}(r.Body)
 
@@ -238,17 +240,20 @@ func (h *handler) GetWithText(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Error().Err(err).Msgf("metric %s retrieval error", mName)
 		w.WriteHeader(http.StatusNotFound)
-		fmt.Fprint(w, err.Error())
 		return
 	}
 
 	if mType == services.Counter {
-		fmt.Fprint(w, *metric.Delta)
+		_, err = w.Write([]byte(fmt.Sprintf("%d", *metric.Delta)))
 	} else {
-		fmt.Fprint(w, *metric.Value)
+		_, err = w.Write([]byte(fmt.Sprintf("%f", *metric.Value)))
 	}
 
-	w.WriteHeader(http.StatusOK)
+	if err != nil {
+		log.Error().Err(err).Msg("error writing to response")
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
 }
 
 func (h *handler) Updates(w http.ResponseWriter, r *http.Request) {
