@@ -142,10 +142,7 @@ func (h *handler) UpdateWithText(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Error().Err(err).Msgf("metric %s update error ", mName)
 		w.WriteHeader(http.StatusNotImplemented)
-		_, err := w.Write([]byte(err.Error()))
-		if err != nil {
-			return
-		}
+		w.Write([]byte(err.Error()))
 		return
 	}
 
@@ -243,17 +240,14 @@ func (h *handler) GetWithText(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	w.WriteHeader(http.StatusOK)
 	if mType == services.Counter {
-		_, err = w.Write([]byte(fmt.Sprintf("%d", *metric.Delta)))
+		fmt.Fprint(w, *metric.Delta)
 	} else {
-		_, err = w.Write([]byte(fmt.Sprintf("%f", *metric.Value)))
+		fmt.Fprint(w, *metric.Value)
 	}
 
-	if err != nil {
-		log.Error().Err(err).Msg("error writing to response")
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
+	return
 }
 
 func (h *handler) Updates(w http.ResponseWriter, r *http.Request) {
