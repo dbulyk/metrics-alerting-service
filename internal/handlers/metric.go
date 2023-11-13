@@ -246,8 +246,6 @@ func (h *handler) GetWithText(w http.ResponseWriter, r *http.Request) {
 	} else {
 		fmt.Fprint(w, *metric.Value)
 	}
-
-	return
 }
 
 func (h *handler) Updates(w http.ResponseWriter, r *http.Request) {
