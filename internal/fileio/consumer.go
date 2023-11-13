@@ -6,8 +6,9 @@ import (
 	"encoding/json"
 	"os"
 
-	"github.com/dbulyk/metrics-alerting-service/internal/models"
 	"github.com/dbulyk/metrics-alerting-service/internal/storages"
+
+	"github.com/dbulyk/metrics-alerting-service/internal/models"
 
 	"github.com/rs/zerolog/log"
 )

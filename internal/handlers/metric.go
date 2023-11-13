@@ -8,12 +8,15 @@ import (
 	"html/template"
 	"io"
 	"net/http"
+	"path/filepath"
 	"strconv"
 	"time"
 
-	"github.com/dbulyk/metrics-alerting-service/internal/models"
 	"github.com/dbulyk/metrics-alerting-service/internal/services"
 	"github.com/dbulyk/metrics-alerting-service/internal/storages"
+
+	"github.com/dbulyk/metrics-alerting-service/internal/models"
+
 	"github.com/go-chi/chi/v5"
 	"github.com/rs/zerolog/log"
 )
@@ -139,10 +142,7 @@ func (h *handler) UpdateWithText(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Error().Err(err).Msgf("metric %s update error ", mName)
 		w.WriteHeader(http.StatusNotImplemented)
-		_, err := w.Write([]byte(err.Error()))
-		if err != nil {
-			return
-		}
+		w.Write([]byte(err.Error()))
 		return
 	}
 
@@ -161,9 +161,10 @@ func (h *handler) GetAll(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 	metrics, _ := h.repository.GetAll(ctx)
 
-	tmpl, err := template.ParseFiles("templates/index.gohtml")
+	tmpl, err := template.ParseFiles(filepath.Join("internal", "templates", "index.gohtml"))
 	if err != nil {
 		log.Error().Err(err).Msg("template parsing error")
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
@@ -171,6 +172,7 @@ func (h *handler) GetAll(w http.ResponseWriter, r *http.Request) {
 	err = tmpl.Execute(w, metrics)
 	if err != nil {
 		log.Error().Err(err).Msg("template execution error")
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 }
@@ -215,6 +217,7 @@ func (h *handler) GetWithText(w http.ResponseWriter, r *http.Request) {
 		err := Body.Close()
 		if err != nil {
 			log.Error().Err(err).Msg("request body closing error")
+			return
 		}
 	}(r.Body)
 
@@ -234,17 +237,15 @@ func (h *handler) GetWithText(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Error().Err(err).Msgf("metric %s retrieval error", mName)
 		w.WriteHeader(http.StatusNotFound)
-		fmt.Fprint(w, err.Error())
 		return
 	}
 
+	w.WriteHeader(http.StatusOK)
 	if mType == services.Counter {
 		fmt.Fprint(w, *metric.Delta)
 	} else {
 		fmt.Fprint(w, *metric.Value)
 	}
-
-	w.WriteHeader(http.StatusOK)
 }
 
 func (h *handler) Updates(w http.ResponseWriter, r *http.Request) {

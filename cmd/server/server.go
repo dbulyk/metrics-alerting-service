@@ -3,14 +3,18 @@ package main
 import (
 	"context"
 	"database/sql"
+	"errors"
+	"github.com/dbulyk/metrics-alerting-service/configs"
 
 	"github.com/dbulyk/metrics-alerting-service/internal/fileio"
 	"github.com/dbulyk/metrics-alerting-service/internal/handlers"
 	"github.com/dbulyk/metrics-alerting-service/internal/middlewares"
 	"github.com/dbulyk/metrics-alerting-service/internal/services"
 	"github.com/dbulyk/metrics-alerting-service/internal/storages"
-	"github.com/go-chi/chi/v5/middleware"
+
 	_ "github.com/jackc/pgx/v5/stdlib"
+
+	"github.com/go-chi/chi/v5/middleware"
 
 	"github.com/go-chi/chi/v5"
 
@@ -22,17 +26,16 @@ import (
 
 	"github.com/rs/zerolog"
 
-	"github.com/dbulyk/metrics-alerting-service/config"
 	"github.com/rs/zerolog/log"
 )
 
 func main() {
-	defer os.Exit(0)
 	output := zerolog.ConsoleWriter{Out: os.Stderr}
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 	log.Logger = zerolog.New(output).With().Timestamp().Logger()
 
-	cfg := config.GetServerCfg()
+	serverCfg := &configs.ServerCfg{}
+	cfg := serverCfg.Get()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -52,9 +55,9 @@ func main() {
 			}
 		}(db)
 
-		metrics = services.NewDBRepository(db, cfg.DatabaseDsn)
+		metrics = services.NewDBRepository(db, cfg.DatabaseDsn, cfg.Key)
 	} else {
-		metrics = services.NewFileRepository()
+		metrics = services.NewFileRepository(cfg.StoreFile, cfg.StoreInterval, cfg.Key)
 	}
 
 	router := chi.NewRouter()
@@ -88,7 +91,7 @@ func main() {
 	log.Info().Msgf("the server starts at %s", cfg.Address)
 
 	go func() {
-		if err := srv.ListenAndServe(); err != nil {
+		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Error().Timestamp().Err(err).Msg("server error")
 		}
 	}()
@@ -97,7 +100,7 @@ func main() {
 	shutdown(ctx, cfg, srv, metrics)
 }
 
-func shutdown(ctx context.Context, cfg config.Server, srv *http.Server, mem storages.Repository) {
+func shutdown(ctx context.Context, cfg *configs.ServerCfg, srv *http.Server, mem storages.Repository) {
 	if len(cfg.StoreFile) > 0 && len(cfg.DatabaseDsn) == 0 {
 		producer, err := fileio.NewProducer(cfg.StoreFile)
 		if err != nil {
@@ -113,9 +116,12 @@ func shutdown(ctx context.Context, cfg config.Server, srv *http.Server, mem stor
 	if err := srv.Shutdown(ctx); err != nil {
 		log.Error().Timestamp().Err(err).Msg("server stop error")
 	}
+
+	<-ctx.Done()
+	log.Info().Msg("server stopped")
 }
 
-func startWriteToFile(ctx context.Context, cfg config.Server, metrics storages.Repository) *time.Ticker {
+func startWriteToFile(ctx context.Context, cfg *configs.ServerCfg, metrics storages.Repository) *time.Ticker {
 	if cfg.Restore && len(cfg.StoreFile) > 0 {
 		consumer, err := fileio.NewConsumer(cfg.StoreFile)
 		if err != nil {

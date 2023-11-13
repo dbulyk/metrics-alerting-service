@@ -7,23 +7,23 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/dbulyk/metrics-alerting-service/internal/models"
 	"github.com/dbulyk/metrics-alerting-service/internal/storages"
+
+	"github.com/dbulyk/metrics-alerting-service/internal/models"
+	"github.com/dbulyk/metrics-alerting-service/internal/utils"
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
-
-	"github.com/dbulyk/metrics-alerting-service/config"
-	"github.com/dbulyk/metrics-alerting-service/internal/utils"
 
 	"github.com/rs/zerolog/log"
 )
 
 type dbRepository struct {
-	db *sql.DB
+	db  *sql.DB
+	key string
 }
 
-func NewDBRepository(db *sql.DB, dsn string) storages.Repository {
+func NewDBRepository(db *sql.DB, dsn string, key string) storages.Repository {
 	m, err := migrate.New(
 		"file://db/migrations",
 		dsn)
@@ -35,13 +35,13 @@ func NewDBRepository(db *sql.DB, dsn string) storages.Repository {
 	}
 
 	return &dbRepository{
-		db: db,
+		db:  db,
+		key: key,
 	}
 }
 
 func (dr *dbRepository) Set(ctx context.Context, metric models.Metric) (*models.Metric, error) {
-	key := config.GetKey()
-	err := checkHashAndAddDelta(ctx, dr.db, &metric, key)
+	err := checkHashAndAddDelta(ctx, dr.db, &metric, dr.key)
 	if err != nil {
 		log.Error().Err(err).Msg("error of hash verification and delta addition")
 		return nil, err
@@ -65,11 +65,11 @@ func (dr *dbRepository) Get(ctx context.Context, mName string, mType string) (*m
 		return nil, ErrInvalidMetric
 	}
 
-	if len(m.Hash) == 0 && len(config.GetKey()) > 0 {
+	if len(dr.key) > 0 {
 		if m.MType == Gauge {
-			m.Hash = utils.Hash(fmt.Sprintf("%s:%s:%f", m.ID, m.MType, *m.Value), config.GetKey())
+			m.Hash = utils.Hash(fmt.Sprintf("%s:%s:%f", m.ID, m.MType, *m.Value), dr.key)
 		} else {
-			m.Hash = utils.Hash(fmt.Sprintf("%s:%s:%d", m.ID, m.MType, *m.Delta), config.GetKey())
+			m.Hash = utils.Hash(fmt.Sprintf("%s:%s:%d", m.ID, m.MType, *m.Delta), dr.key)
 		}
 	}
 
@@ -105,7 +105,7 @@ func (dr *dbRepository) GetAll(ctx context.Context) ([]*models.Metric, error) {
 }
 
 func (dr *dbRepository) Updates(ctx context.Context, metrics []models.Metric) ([]models.Metric, error) {
-	key := config.GetKey()
+	key := dr.key
 	for i := range metrics {
 		err := checkHashAndAddDelta(ctx, dr.db, &metrics[i], key)
 		if err != nil {

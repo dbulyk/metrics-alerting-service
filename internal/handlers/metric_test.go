@@ -13,12 +13,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dbulyk/metrics-alerting-service/internal/models"
 	"github.com/dbulyk/metrics-alerting-service/internal/services"
 
+	"github.com/dbulyk/metrics-alerting-service/internal/models"
 	"github.com/dbulyk/metrics-alerting-service/internal/utils"
 
-	"github.com/dbulyk/metrics-alerting-service/config"
 	"github.com/go-chi/chi/v5"
 	"github.com/rs/zerolog/log"
 	"github.com/stretchr/testify/assert"
@@ -55,7 +54,7 @@ func testRequest(t *testing.T, ts *httptest.Server, method, path string, jsonDat
 }
 
 func TestHandler_GetWithText(t *testing.T) {
-	mem := services.NewFileRepository()
+	mem := services.NewFileRepository("tmp/devops-metrics-db-test.json", time.Second, "test")
 
 	r := chi.NewRouter()
 	h := NewRouter(r, &mem)
@@ -64,11 +63,11 @@ func TestHandler_GetWithText(t *testing.T) {
 	ts := httptest.NewServer(r)
 	defer ts.Close()
 
-	hash := utils.Hash("testGauge:gauge:123.150000", config.GetKey())
+	hash := utils.Hash("testGauge:gauge:123.150000", "test")
 	statusCode, _ := testRequest(t, ts, "POST", "/update/gauge/testGauge/123.15/"+hash, nil)
 	assert.Equal(t, http.StatusOK, statusCode)
 
-	hash = utils.Hash("testCounter:counter:123", config.GetKey())
+	hash = utils.Hash("testCounter:counter:123", "test")
 	statusCode, _ = testRequest(t, ts, "POST", "/update/counter/testCounter/123/"+hash, nil)
 	assert.Equal(t, http.StatusOK, statusCode)
 
@@ -111,7 +110,7 @@ func TestHandler_GetWithText(t *testing.T) {
 }
 
 func TestHandler_GetWithJSON(t *testing.T) {
-	mem := services.NewFileRepository()
+	mem := services.NewFileRepository("tmp/devops-metrics-db-test.json", time.Second, "test")
 
 	r := chi.NewRouter()
 	h := NewRouter(r, &mem)
@@ -127,7 +126,7 @@ func TestHandler_GetWithJSON(t *testing.T) {
 		MType: services.Gauge,
 		Delta: nil,
 		Value: &value,
-		Hash:  utils.Hash(fmt.Sprintf("testGauge:gauge:%f", value), config.GetKey()),
+		Hash:  utils.Hash(fmt.Sprintf("testGauge:gauge:%f", value), "test"),
 	}
 
 	b, err := json.Marshal(m)
@@ -175,7 +174,7 @@ func TestHandler_GetWithJSON(t *testing.T) {
 }
 
 func TestHandler_UpdateWithText(t *testing.T) {
-	mem := services.NewFileRepository()
+	mem := services.NewFileRepository("tmp/devops-metrics-db-test.json", time.Second, "test")
 
 	r := chi.NewRouter()
 	h := NewRouter(r, &mem)
@@ -195,8 +194,8 @@ func TestHandler_UpdateWithText(t *testing.T) {
 		{"invalid type", "invalid", "testGauge", "1.05", "123", http.StatusNotImplemented},
 		{"invalid gauge value", "gauge", "testGauge", "invalid", "123", http.StatusBadRequest},
 		{"invalid counter value", "counter", "testCounter", "invalid", "123", http.StatusBadRequest},
-		{"correct metric", "gauge", "testGauge", "1.05", utils.Hash("testGauge:gauge:1.050000", config.GetKey()), http.StatusOK},
-		{"correct metric", "counter", "testCounter", "123", utils.Hash("testCounter:counter:123", config.GetKey()), http.StatusOK},
+		{"correct metric", "gauge", "testGauge", "1.05", utils.Hash("testGauge:gauge:1.050000", "test"), http.StatusOK},
+		{"correct metric", "counter", "testCounter", "123", utils.Hash("testCounter:counter:123", "test"), http.StatusOK},
 	}
 
 	for _, tc := range testCases {
@@ -236,7 +235,7 @@ func TestHandler_UpdateWithText(t *testing.T) {
 }
 
 func TestHandler_UpdateWithJSON(t *testing.T) {
-	mem := services.NewFileRepository()
+	mem := services.NewFileRepository("tmp/devops-metrics-db-test.json", time.Second, "test")
 
 	r := chi.NewRouter()
 	h := NewRouter(r, &mem)
@@ -257,7 +256,7 @@ func TestHandler_UpdateWithJSON(t *testing.T) {
 				MType: services.Counter,
 				Delta: &delta,
 				Value: nil,
-				Hash:  utils.Hash(fmt.Sprintf("testCounter:counter:%d", delta), config.GetKey()),
+				Hash:  utils.Hash(fmt.Sprintf("testCounter:counter:%d", delta), "test"),
 			},
 			http.StatusOK,
 		},
@@ -268,7 +267,7 @@ func TestHandler_UpdateWithJSON(t *testing.T) {
 				MType: services.Gauge,
 				Delta: nil,
 				Value: &value,
-				Hash:  utils.Hash(fmt.Sprintf("testGauge:gauge:%f", value), config.GetKey()),
+				Hash:  utils.Hash(fmt.Sprintf("testGauge:gauge:%f", value), "test"),
 			},
 			http.StatusOK,
 		},
@@ -313,7 +312,7 @@ func TestHandler_UpdateWithJSON(t *testing.T) {
 }
 
 func TestHandler_GetAll(t *testing.T) {
-	mem := services.NewFileRepository()
+	mem := services.NewFileRepository("tmp/devops-metrics-db-test.json", time.Second, "test")
 
 	r := chi.NewRouter()
 	h := NewRouter(r, &mem)
@@ -322,7 +321,7 @@ func TestHandler_GetAll(t *testing.T) {
 	ts := httptest.NewServer(r)
 	defer ts.Close()
 
-	hash := utils.Hash("testGauge:gauge:123.150000", config.GetKey())
+	hash := utils.Hash("testGauge:gauge:123.150000", "test")
 	statusCode, _ := testRequest(t, ts, "POST", "/update/gauge/testGauge/123.15/"+hash, nil)
 	assert.Equal(t, http.StatusOK, statusCode)
 
