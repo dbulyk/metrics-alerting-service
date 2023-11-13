@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"github.com/dbulyk/metrics-alerting-service/configs"
 	"net/http"
 	"os"
 	"os/signal"
@@ -20,7 +21,7 @@ func main() {
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 	log.Logger = zerolog.New(output).With().Timestamp().Logger()
 
-	agentCfg := &AgentCfg{}
+	agentCfg := &configs.AgentCfg{}
 	cfg, err := agentCfg.GetAgentConfig()
 	if err != nil {
 		log.Panic().Err(err).Msg("config parsing error")
