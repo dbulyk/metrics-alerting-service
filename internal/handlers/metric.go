@@ -81,8 +81,6 @@ func (h *handler) UpdateWithJSON(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-
-	w.WriteHeader(http.StatusOK)
 }
 
 func (h *handler) UpdateWithText(w http.ResponseWriter, r *http.Request) {
@@ -145,8 +143,6 @@ func (h *handler) UpdateWithText(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(err.Error()))
 		return
 	}
-
-	w.WriteHeader(http.StatusOK)
 }
 
 func (h *handler) GetAll(w http.ResponseWriter, r *http.Request) {
@@ -199,7 +195,6 @@ func (h *handler) GetWithJSON(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Error().Err(err).Msgf("metric %s retrieval error", m.ID)
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte(err.Error()))
 		return
 	}
 
@@ -209,7 +204,6 @@ func (h *handler) GetWithJSON(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	w.WriteHeader(http.StatusOK)
 }
 
 func (h *handler) GetWithText(w http.ResponseWriter, r *http.Request) {
@@ -281,7 +275,6 @@ func (h *handler) Updates(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	w.WriteHeader(http.StatusOK)
 }
 
 func (h *handler) Ping(w http.ResponseWriter, r *http.Request) {

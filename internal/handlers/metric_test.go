@@ -329,3 +329,128 @@ func TestHandler_GetAll(t *testing.T) {
 	assert.Equal(t, http.StatusOK, statusCode)
 	assert.NotEmpty(t, body)
 }
+
+func BenchmarkHandler_GetAll(b *testing.B) {
+	b.StopTimer()
+	mem := services.NewFileRepository("tmp/devops-metrics-db-test.json", time.Second, "test")
+
+	r := chi.NewRouter()
+	h := NewRouter(r, &mem)
+	h.Register(r)
+
+	ts := httptest.NewServer(r)
+	defer ts.Close()
+
+	hash := utils.Hash("testGauge:gauge:123.150000", "test")
+	req, err := http.NewRequest("POST", ts.URL+"/update/gauge/testGauge/123.15/"+hash, bytes.NewBuffer(nil))
+	assert.NoError(b, err)
+
+	resp, err := http.DefaultClient.Do(req)
+	assert.NoError(b, err)
+	err = resp.Body.Close()
+	assert.NoError(b, err)
+
+	req, err = http.NewRequest("GET", ts.URL+"/", bytes.NewBuffer(nil))
+	assert.NoError(b, err)
+
+	for i := 0; i < b.N; i++ {
+		b.StartTimer()
+		resp, err = http.DefaultClient.Do(req)
+		b.StopTimer()
+		assert.NoError(b, err)
+		err = resp.Body.Close()
+		assert.NoError(b, err)
+	}
+}
+
+func BenchmarkHandler_GetWithJSON(b *testing.B) {
+	b.StopTimer()
+	mem := services.NewFileRepository("tmp/devops-metrics-db-test.json", time.Second, "test")
+
+	r := chi.NewRouter()
+	h := NewRouter(r, &mem)
+	h.Register(r)
+
+	ts := httptest.NewServer(r)
+	defer ts.Close()
+
+	hash := utils.Hash("testGauge:gauge:123.150000", "test")
+	req, err := http.NewRequest("POST", ts.URL+"/update/gauge/testGauge/123.15/"+hash, bytes.NewBuffer(nil))
+	assert.NoError(b, err)
+
+	resp, err := http.DefaultClient.Do(req)
+	assert.NoError(b, err)
+	err = resp.Body.Close()
+	require.NoError(b, err)
+
+	jsonData, err := json.Marshal(models.Metric{
+		ID:    "testGauge",
+		MType: "gauge",
+		Delta: nil,
+		Value: nil,
+	})
+	assert.NoError(b, err)
+
+	for i := 0; i < b.N; i++ {
+		req, err = http.NewRequest("POST", ts.URL+"/value/", bytes.NewBuffer(jsonData))
+		assert.NoError(b, err)
+
+		b.StartTimer()
+		resp, err = http.DefaultClient.Do(req)
+		b.StopTimer()
+		require.NoError(b, err)
+		err = resp.Body.Close()
+		require.NoError(b, err)
+	}
+}
+
+func BenchmarkHandler_UpdateWithJSON(b *testing.B) {
+	b.StopTimer()
+	mem := services.NewFileRepository("tmp/devops-metrics-db-test.json", time.Second, "test")
+
+	r := chi.NewRouter()
+	h := NewRouter(r, &mem)
+	h.Register(r)
+
+	ts := httptest.NewServer(r)
+	defer ts.Close()
+
+	val := int64(15)
+	hash := utils.Hash("testCounter:counter:15", "test")
+	jsonData, err := json.Marshal(models.Metric{
+		ID:    "testCounter",
+		MType: "counter",
+		Delta: &val,
+		Value: nil,
+		Hash:  hash,
+	})
+	assert.NoError(b, err)
+	req, err := http.NewRequest("POST", ts.URL+"/update/", bytes.NewBuffer(jsonData))
+	assert.NoError(b, err)
+
+	resp, err := http.DefaultClient.Do(req)
+	assert.NoError(b, err)
+	err = resp.Body.Close()
+	assert.NoError(b, err)
+
+	for i := 0; i < b.N; i++ {
+		val += val
+		hash = utils.Hash(fmt.Sprintf("testCounter:counter:%d", val), "test")
+		jsonData, err = json.Marshal(models.Metric{
+			ID:    "testCounter",
+			MType: "counter",
+			Delta: &val,
+			Value: nil,
+			Hash:  hash,
+		})
+		assert.NoError(b, err)
+		req, err = http.NewRequest("POST", ts.URL+"/update/", bytes.NewBuffer(jsonData))
+		assert.NoError(b, err)
+		b.StartTimer()
+		resp, err = http.DefaultClient.Do(req)
+		b.StopTimer()
+		assert.NoError(b, err)
+		err = resp.Body.Close()
+		assert.NoError(b, err)
+	}
+}

@@ -4,7 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"github.com/dbulyk/metrics-alerting-service/configs"
+
+	"github.com/dbulyk/metrics-alerting-service/internal/configs"
 
 	"github.com/dbulyk/metrics-alerting-service/internal/fileio"
 	"github.com/dbulyk/metrics-alerting-service/internal/handlers"
@@ -66,6 +67,7 @@ func main() {
 	router.Use(middleware.RealIP)
 	router.Use(middleware.Recoverer)
 	router.Use(middlewares.GzipMiddleware)
+	router.Mount("/debug", middleware.Profiler())
 	metricHandler := handlers.NewRouter(router, &metrics)
 	metricHandler.Register(router)
 	log.Info().Msg("router initialized")

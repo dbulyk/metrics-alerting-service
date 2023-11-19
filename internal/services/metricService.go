@@ -309,7 +309,7 @@ func (ms *MetricsService) MergeAndPushToQueue(ctx context.Context, key string) {
 	}
 }
 
-func (ms *MetricsService) Send(ctx context.Context, wg *sync.WaitGroup, client *http.Client, address string) {
+func (ms *MetricsService) Send(ctx context.Context, wg *sync.WaitGroup, client http.Client, address string) {
 	defer wg.Done()
 
 	for metrics := range ms.ch {
