@@ -47,7 +47,7 @@ func (c *Consumer) Close() error {
 	return c.file.Close()
 }
 
-func (c *Consumer) Restore(ctx context.Context, mem storages.Repository) error {
+func (c *Consumer) Restore(ctx context.Context, mem storages.IRepository) error {
 	defer func(consumer *Consumer) {
 		err := consumer.Close()
 		if err != nil {

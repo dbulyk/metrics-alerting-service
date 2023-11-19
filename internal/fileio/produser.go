@@ -47,7 +47,7 @@ func (p *Producer) Close() error {
 	return p.file.Close()
 }
 
-func (p *Producer) Save(ctx context.Context, mem storages.Repository, filename string) error {
+func (p *Producer) Save(ctx context.Context, mem storages.IRepository, filename string) error {
 	listMetrics, _ := mem.GetAll(ctx)
 
 	defer func(p *Producer) {

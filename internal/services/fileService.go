@@ -36,7 +36,7 @@ type fileRepository struct {
 	key           string
 }
 
-func NewFileRepository(storeFile string, storeInterval time.Duration, key string) storages.Repository {
+func NewFileRepository(storeFile string, storeInterval time.Duration, key string) storages.IRepository {
 	return &fileRepository{
 		metrics:       make([]*models.Metric, 0, 50),
 		Mutex:         sync.Mutex{},
@@ -48,10 +48,10 @@ func NewFileRepository(storeFile string, storeInterval time.Duration, key string
 
 func (fr *fileRepository) GetAll(_ context.Context) ([]*models.Metric, error) {
 	fr.Lock()
-	var listMetrics = make([]*models.Metric, len(fr.metrics))
-	copy(listMetrics, fr.metrics)
+	var m = make([]*models.Metric, len(fr.metrics))
+	copy(m, fr.metrics)
 	fr.Unlock()
-	return listMetrics, nil
+	return m, nil
 }
 
 func (fr *fileRepository) Set(ctx context.Context, metric models.Metric) (*models.Metric, error) {
@@ -140,7 +140,8 @@ func addToStorage(metrics *[]*models.Metric, metric models.Metric, key string) (
 
 		mHash = utils.Hash(s, key)
 		if !hmac.Equal([]byte(mHash), []byte(metric.Hash)) {
-			log.Error().Msgf("the incoming hash does not match the calculated hash. Metric %s will not be added", metric.ID)
+			log.Error().Msgf("the incoming hash does not match the calculated hash. Metric %s will not be added",
+				metric.ID)
 			return nil, ErrInvalidHash
 		}
 	}

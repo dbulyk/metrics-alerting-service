@@ -41,7 +41,7 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	var metrics storages.Repository
+	var metrics storages.IRepository
 
 	if len(cfg.DatabaseDsn) > 0 {
 		db, err := sql.Open("pgx", cfg.DatabaseDsn)
@@ -67,7 +67,6 @@ func main() {
 	router.Use(middleware.RealIP)
 	router.Use(middleware.Recoverer)
 	router.Use(middlewares.GzipMiddleware)
-	//router.Mount("/debug", middleware.Profiler())
 	metricHandler := handlers.NewRouter(router, &metrics)
 	metricHandler.Register(router)
 	log.Info().Msg("router initialized")
@@ -102,7 +101,7 @@ func main() {
 	shutdown(ctx, cfg, srv, metrics)
 }
 
-func shutdown(ctx context.Context, cfg *configs.ServerCfg, srv *http.Server, mem storages.Repository) {
+func shutdown(ctx context.Context, cfg *configs.ServerCfg, srv *http.Server, mem storages.IRepository) {
 	if len(cfg.StoreFile) > 0 && len(cfg.DatabaseDsn) == 0 {
 		producer, err := fileio.NewProducer(cfg.StoreFile)
 		if err != nil {
@@ -123,7 +122,7 @@ func shutdown(ctx context.Context, cfg *configs.ServerCfg, srv *http.Server, mem
 	log.Info().Msg("server stopped")
 }
 
-func startWriteToFile(ctx context.Context, cfg *configs.ServerCfg, metrics storages.Repository) *time.Ticker {
+func startWriteToFile(ctx context.Context, cfg *configs.ServerCfg, metrics storages.IRepository) *time.Ticker {
 	if cfg.Restore && len(cfg.StoreFile) > 0 {
 		consumer, err := fileio.NewConsumer(cfg.StoreFile)
 		if err != nil {

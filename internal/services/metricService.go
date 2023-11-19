@@ -319,7 +319,10 @@ func (ms *MetricsService) Send(ctx context.Context, wg *sync.WaitGroup, client h
 			continue
 		}
 
-		request, err := http.NewRequestWithContext(ctx, http.MethodPost, "http://"+address+"/updates/", bytes.NewBuffer(jsonData))
+		request, err := http.NewRequestWithContext(ctx,
+			http.MethodPost,
+			"http://"+address+"/updates/",
+			bytes.NewBuffer(jsonData))
 		if err != nil {
 			log.Error().Err(err).Msg("error creating request")
 			continue

@@ -2,11 +2,12 @@ package services
 
 import (
 	"context"
-	"github.com/jarcoal/httpmock"
 	"net/http"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/jarcoal/httpmock"
 
 	"github.com/stretchr/testify/assert"
 )

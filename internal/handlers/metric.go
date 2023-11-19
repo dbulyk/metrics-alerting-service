@@ -22,11 +22,11 @@ import (
 )
 
 type handler struct {
-	repository storages.Repository
+	repository storages.IRepository
 	r          chi.Router
 }
 
-func NewRouter(router *chi.Mux, rep *storages.Repository) (r Handler) {
+func NewRouter(router *chi.Mux, rep *storages.IRepository) (r Handler) {
 	return &handler{
 		repository: *rep,
 		r:          router,

@@ -6,7 +6,7 @@ import (
 	"github.com/dbulyk/metrics-alerting-service/internal/models"
 )
 
-type Repository interface {
+type IRepository interface {
 	Set(ctx context.Context, metric models.Metric) (*models.Metric, error)
 	Get(ctx context.Context, mName string, mType string) (*models.Metric, error)
 	GetAll(ctx context.Context) ([]*models.Metric, error)
