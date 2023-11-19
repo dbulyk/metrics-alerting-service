@@ -67,7 +67,7 @@ func main() {
 	router.Use(middleware.RealIP)
 	router.Use(middleware.Recoverer)
 	router.Use(middlewares.GzipMiddleware)
-	router.Mount("/debug", middleware.Profiler())
+	//router.Mount("/debug", middleware.Profiler())
 	metricHandler := handlers.NewRouter(router, &metrics)
 	metricHandler.Register(router)
 	log.Info().Msg("router initialized")
