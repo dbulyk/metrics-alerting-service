@@ -79,10 +79,6 @@ func (h *handler) UpdateWithJSON(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewDecoder(r.Body).Decode(&m); err != nil {
 		log.Error().Err(err).Msgf("JSON decoding error")
 		w.WriteHeader(http.StatusBadRequest)
-		_, err = w.Write([]byte(err.Error()))
-		if err != nil {
-			log.Error().Err(err).Msg("response writing error")
-		}
 		return
 	}
 
@@ -92,17 +88,9 @@ func (h *handler) UpdateWithJSON(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if errors.Is(err, services.ErrInvalidHash) {
 			w.WriteHeader(http.StatusBadRequest)
-			_, err = w.Write([]byte(err.Error()))
-			if err != nil {
-				log.Error().Err(err).Msg("response writing error")
-			}
 			return
 		}
 		w.WriteHeader(http.StatusNotImplemented)
-		_, err = w.Write([]byte(err.Error()))
-		if err != nil {
-			log.Error().Err(err).Msg("response writing error")
-		}
 		return
 	}
 
@@ -110,11 +98,6 @@ func (h *handler) UpdateWithJSON(w http.ResponseWriter, r *http.Request) {
 	if err = json.NewEncoder(w).Encode(metric); err != nil {
 		log.Error().Err(err).Msg("JSON encoding error")
 		w.WriteHeader(http.StatusBadRequest)
-		_, err = w.Write([]byte(err.Error()))
-		if err != nil {
-			log.Error().Err(err).Msg("response writing error")
-			return
-		}
 		return
 	}
 }
@@ -160,10 +143,6 @@ func (h *handler) UpdateWithText(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			log.Error().Err(err).Msgf("metric value parsing error: %s", chi.URLParam(r, "value"))
 			w.WriteHeader(http.StatusBadRequest)
-			_, err = w.Write([]byte(err.Error()))
-			if err != nil {
-				log.Error().Err(err).Msg("response writing error")
-			}
 			return
 		}
 		mValueFloat = &value
@@ -172,10 +151,6 @@ func (h *handler) UpdateWithText(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			log.Error().Err(err).Msgf("metric value parsing error: %s", chi.URLParam(r, "value"))
 			w.WriteHeader(http.StatusBadRequest)
-			_, err = w.Write([]byte(err.Error()))
-			if err != nil {
-				log.Error().Err(err).Msg("response writing error")
-			}
 			return
 		}
 		mValueInt = &value
@@ -195,10 +170,6 @@ func (h *handler) UpdateWithText(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Error().Err(err).Msgf("metric %s update error ", mName)
 		w.WriteHeader(http.StatusNotImplemented)
-		_, err = w.Write([]byte(err.Error()))
-		if err != nil {
-			log.Error().Err(err).Msg("response writing error")
-		}
 		return
 	}
 }
@@ -226,10 +197,6 @@ func (h *handler) GetAll(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Error().Err(err).Msg("template parsing error")
 		w.WriteHeader(http.StatusInternalServerError)
-		_, err = w.Write([]byte(err.Error()))
-		if err != nil {
-			log.Error().Err(err).Msg("response writing error")
-		}
 		return
 	}
 
@@ -238,10 +205,6 @@ func (h *handler) GetAll(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Error().Err(err).Msg("template execution error")
 		w.WriteHeader(http.StatusInternalServerError)
-		_, err = w.Write([]byte(err.Error()))
-		if err != nil {
-			log.Error().Err(err).Msg("response writing error")
-		}
 		return
 	}
 }
@@ -269,10 +232,6 @@ func (h *handler) GetWithJSON(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewDecoder(r.Body).Decode(&m); err != nil {
 		log.Error().Err(err).Msg("JSON decoding error")
 		w.WriteHeader(http.StatusBadRequest)
-		_, err = w.Write([]byte(err.Error()))
-		if err != nil {
-			log.Error().Err(err).Msg("response writing error")
-		}
 		return
 	}
 
@@ -282,10 +241,6 @@ func (h *handler) GetWithJSON(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Error().Err(err).Msgf("metric %s retrieval error", m.ID)
 		w.WriteHeader(http.StatusNotFound)
-		_, err = w.Write([]byte(err.Error()))
-		if err != nil {
-			log.Error().Err(err).Msg("response writing error")
-		}
 		return
 	}
 
@@ -293,10 +248,6 @@ func (h *handler) GetWithJSON(w http.ResponseWriter, r *http.Request) {
 	if err = json.NewEncoder(w).Encode(metric); err != nil {
 		log.Error().Err(err).Msg("JSON encoding error")
 		w.WriteHeader(http.StatusBadRequest)
-		_, err = w.Write([]byte(err.Error()))
-		if err != nil {
-			log.Error().Err(err).Msg("response writing error")
-		}
 		return
 	}
 }
@@ -335,11 +286,6 @@ func (h *handler) GetWithText(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Error().Err(err).Msgf("metric %s retrieval error", mName)
 		w.WriteHeader(http.StatusNotFound)
-		_, err = w.Write([]byte(err.Error()))
-		if err != nil {
-			log.Error().Err(err).Msg("response writing error")
-			return
-		}
 		return
 	}
 
@@ -375,10 +321,6 @@ func (h *handler) Updates(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewDecoder(r.Body).Decode(&metrics); err != nil {
 		log.Error().Err(err).Msg("JSON decoding error")
 		w.WriteHeader(http.StatusBadRequest)
-		_, err = w.Write([]byte(err.Error()))
-		if err != nil {
-			log.Error().Err(err).Msg("response writing error")
-		}
 		return
 	}
 
@@ -390,10 +332,6 @@ func (h *handler) Updates(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Error().Err(err).Msg("metrics update error")
 		w.WriteHeader(http.StatusBadRequest)
-		_, err = w.Write([]byte(err.Error()))
-		if err != nil {
-			log.Error().Err(err).Msg("response writing error")
-		}
 		return
 	}
 
@@ -401,10 +339,6 @@ func (h *handler) Updates(w http.ResponseWriter, r *http.Request) {
 	if err = json.NewEncoder(w).Encode(metricsResp); err != nil {
 		log.Error().Err(err).Msg("JSON encoding error")
 		w.WriteHeader(http.StatusBadRequest)
-		_, err = w.Write([]byte(err.Error()))
-		if err != nil {
-			log.Error().Err(err).Msg("response writing error")
-		}
 		return
 	}
 }
@@ -427,11 +361,6 @@ func (h *handler) Ping(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Error().Err(err).Msg("ping error")
 		w.WriteHeader(http.StatusInternalServerError)
-		_, err = w.Write([]byte(err.Error()))
-		if err != nil {
-			log.Error().Err(err).Msg("response writing error")
-			return
-		}
 		return
 	}
 	w.WriteHeader(http.StatusOK)
