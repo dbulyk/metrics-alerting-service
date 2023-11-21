@@ -23,6 +23,8 @@ type dbRepository struct {
 	key string
 }
 
+// NewDBRepository creates a new repository for working with the database and returns a pointer to it.
+// It also performs database migration.
 func NewDBRepository(db *sql.DB, dsn string, key string) storages.IRepository {
 	m, err := migrate.New(
 		"file://db/migrations",
@@ -40,6 +42,7 @@ func NewDBRepository(db *sql.DB, dsn string, key string) storages.IRepository {
 	}
 }
 
+// Set adds a new metric to the database or updates an existing one, check hash and add delta to existing counter.
 func (dr *dbRepository) Set(ctx context.Context, metric models.Metric) (*models.Metric, error) {
 	err := checkHashAndAddDelta(ctx, dr.db, &metric, dr.key)
 	if err != nil {
@@ -58,6 +61,7 @@ func (dr *dbRepository) Set(ctx context.Context, metric models.Metric) (*models.
 	return &metric, nil
 }
 
+// Get returns a metric from the database by name and type and check hash.
 func (dr *dbRepository) Get(ctx context.Context, mName string, mType string) (*models.Metric, error) {
 	rows := dr.db.QueryRowContext(ctx, "select id, mtype, delta, value, hash from metrics "+
 		"where id = $1 and mtype = $2", mName, mType)
@@ -79,6 +83,7 @@ func (dr *dbRepository) Get(ctx context.Context, mName string, mType string) (*m
 	return &m, nil
 }
 
+// GetAll returns all metrics from the database.
 func (dr *dbRepository) GetAll(ctx context.Context) ([]*models.Metric, error) {
 	var metrics []*models.Metric
 
@@ -112,6 +117,8 @@ func (dr *dbRepository) GetAll(ctx context.Context) ([]*models.Metric, error) {
 	return metrics, nil
 }
 
+// Updates adds a slice of metrics to the database or updates existing ones, check hash
+// and add delta to existing counter.
 func (dr *dbRepository) Updates(ctx context.Context, metrics []models.Metric) ([]models.Metric, error) {
 	key := dr.key
 	for i := range metrics {
@@ -149,6 +156,7 @@ func (dr *dbRepository) Updates(ctx context.Context, metrics []models.Metric) ([
 	return metrics, nil
 }
 
+// Ping checks the connection to the database.
 func (dr *dbRepository) Ping() error {
 	return dr.db.Ping()
 }

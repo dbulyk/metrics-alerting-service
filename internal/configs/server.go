@@ -17,6 +17,7 @@ type ServerCfg struct {
 	DatabaseDsn   string        `env:"DATABASE_DSN"`
 }
 
+// Get parses the config from the command line and environment variables. Environment variables have a higher priority.
 func (c *ServerCfg) Get() *ServerCfg {
 	flag.StringVar(&c.Address, "a", "localhost:8080", "server address")
 	flag.BoolVar(&c.Restore, "r", true, "restore metrics from file")

@@ -32,6 +32,7 @@ type MetricsService struct {
 	pollInterval    time.Duration
 }
 
+// NewMetricsService creates a new metrics service and returns a pointer to it.
 func NewMetricsService(reportInterval time.Duration, pollInterval time.Duration, rateLimit int) *MetricsService {
 	pollCount := atomic.Int64{}
 	pollCount.Store(1)
@@ -50,6 +51,7 @@ func NewMetricsService(reportInterval time.Duration, pollInterval time.Duration,
 	}
 }
 
+// CollectRuntime collects runtime metrics.
 func (ms *MetricsService) CollectRuntime(ctx context.Context) {
 	ticker := time.NewTicker(ms.pollInterval)
 	defer ticker.Stop()
@@ -219,6 +221,7 @@ func (ms *MetricsService) CollectRuntime(ctx context.Context) {
 	}
 }
 
+// CollectAdvanced collects advanced metrics.
 func (ms *MetricsService) CollectAdvanced(ctx context.Context) {
 	ticker := time.NewTicker(ms.pollInterval)
 	defer ticker.Stop()
@@ -267,6 +270,7 @@ func (ms *MetricsService) CollectAdvanced(ctx context.Context) {
 	}
 }
 
+// MergeAndPushToQueue hashes and merges metrics and pushes them to the queue.
 func (ms *MetricsService) MergeAndPushToQueue(ctx context.Context, key string) {
 	ticker := time.NewTicker(ms.reportInterval)
 	defer ticker.Stop()
@@ -309,6 +313,8 @@ func (ms *MetricsService) MergeAndPushToQueue(ctx context.Context, key string) {
 	}
 }
 
+// Send reads metrics from metric service chanel, converts them to JSON,
+// and sends them as HTTP POST requests to the address.
 func (ms *MetricsService) Send(ctx context.Context, wg *sync.WaitGroup, client http.Client, address string) {
 	defer wg.Done()
 

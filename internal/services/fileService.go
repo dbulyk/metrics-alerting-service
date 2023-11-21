@@ -36,6 +36,7 @@ type fileRepository struct {
 	key           string
 }
 
+// NewFileRepository creates a new repository for working with the file and returns a pointer to it.
 func NewFileRepository(storeFile string, storeInterval time.Duration, key string) storages.IRepository {
 	return &fileRepository{
 		metrics:       make([]*models.Metric, 0, 50),
@@ -46,6 +47,7 @@ func NewFileRepository(storeFile string, storeInterval time.Duration, key string
 	}
 }
 
+// GetAll returns all metrics from the file.
 func (fr *fileRepository) GetAll(_ context.Context) ([]*models.Metric, error) {
 	fr.Lock()
 	var m = make([]*models.Metric, len(fr.metrics))
@@ -54,6 +56,7 @@ func (fr *fileRepository) GetAll(_ context.Context) ([]*models.Metric, error) {
 	return m, nil
 }
 
+// Set adds a new metric to the file or updates an existing one, check hash and add delta to existing counter.
 func (fr *fileRepository) Set(ctx context.Context, metric models.Metric) (*models.Metric, error) {
 	fr.Lock()
 	defer fr.Unlock()
@@ -80,6 +83,7 @@ func (fr *fileRepository) Set(ctx context.Context, metric models.Metric) (*model
 	return &metric, nil
 }
 
+// Get returns a metric from the file by name and type.
 func (fr *fileRepository) Get(_ context.Context, id string, mType string) (*models.Metric, error) {
 	fr.Lock()
 	for _, m := range fr.metrics {
@@ -92,6 +96,7 @@ func (fr *fileRepository) Get(_ context.Context, id string, mType string) (*mode
 	return nil, ErrInvalidMetric
 }
 
+// Updates adds a slice of metrics to the file or updates existing ones, check hash and add delta to existing counter.
 func (fr *fileRepository) Updates(ctx context.Context, metrics []models.Metric) ([]models.Metric, error) {
 	fr.Lock()
 	defer fr.Unlock()
@@ -119,6 +124,7 @@ func (fr *fileRepository) Updates(ctx context.Context, metrics []models.Metric) 
 	return metrics, nil
 }
 
+// Ping return nil.
 func (fr *fileRepository) Ping() error {
 	return nil
 }

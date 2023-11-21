@@ -6,7 +6,6 @@ import (
 	"errors"
 
 	"github.com/dbulyk/metrics-alerting-service/internal/configs"
-
 	"github.com/dbulyk/metrics-alerting-service/internal/fileio"
 	"github.com/dbulyk/metrics-alerting-service/internal/handlers"
 	"github.com/dbulyk/metrics-alerting-service/internal/middlewares"
@@ -15,9 +14,8 @@ import (
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 
-	"github.com/go-chi/chi/v5/middleware"
-
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 
 	"net/http"
 	"os"
@@ -25,8 +23,8 @@ import (
 	"syscall"
 	"time"
 
+	_ "github.com/dbulyk/metrics-alerting-service/swagger"
 	"github.com/rs/zerolog"
-
 	"github.com/rs/zerolog/log"
 )
 

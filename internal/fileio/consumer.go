@@ -19,6 +19,7 @@ type Consumer struct {
 	decoder *json.Decoder
 }
 
+// NewConsumer creates a new consumer and returns a pointer to it.
 func NewConsumer(filename string) (*Consumer, error) {
 	file, err := os.OpenFile(filename, os.O_RDONLY|os.O_CREATE, os.ModePerm)
 	if err != nil {
@@ -31,6 +32,7 @@ func NewConsumer(filename string) (*Consumer, error) {
 	}, nil
 }
 
+// Read reads metrics from file.
 func (c *Consumer) Read() ([]models.Metric, error) {
 	metrics := make([]models.Metric, 0, 50)
 	for c.reader.Scan() {
@@ -43,10 +45,12 @@ func (c *Consumer) Read() ([]models.Metric, error) {
 	return metrics, nil
 }
 
+// Close the file.
 func (c *Consumer) Close() error {
 	return c.file.Close()
 }
 
+// Restore restores metrics from file.
 func (c *Consumer) Restore(ctx context.Context, mem storages.IRepository) error {
 	defer func(consumer *Consumer) {
 		err := consumer.Close()

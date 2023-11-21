@@ -15,6 +15,7 @@ type AgentCfg struct {
 	RateLimit      int           `env:"RATE_LIMIT" envDescription:"rate limit for requests to the server"`
 }
 
+// Get parses the config from the command line and environment variables. Environment variables have a higher priority.
 func (a *AgentCfg) Get() (*AgentCfg, error) {
 	flag.StringVar(&a.Address, "a", "localhost:8080", "server address")
 	flag.DurationVar(&a.ReportInterval, "r", 10*time.Second, "interval for sending metrics to the server")

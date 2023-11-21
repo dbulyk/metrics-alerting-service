@@ -13,6 +13,7 @@ type gzipWriter struct {
 	Writer *gzip.Writer
 }
 
+// GzipMiddleware compresses HTTP response using gzip.
 func GzipMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
@@ -35,14 +36,17 @@ func GzipMiddleware(next http.Handler) http.Handler {
 	})
 }
 
+// Write writes compressed data to the gzip.Writer.
 func (gzResponse gzipWriter) Write(b []byte) (int, error) {
 	return gzResponse.Writer.Write(b)
 }
 
+// Header returns the header of the gzip.ResponseWriter.
 func (gzResponse gzipWriter) Header() http.Header {
 	return gzResponse.ResponseWriter.Header()
 }
 
+// WriteHeader writes the header to the gzip.ResponseWriter.
 func (gzResponse gzipWriter) WriteHeader(statusCode int) {
 	gzResponse.ResponseWriter.WriteHeader(statusCode)
 }
