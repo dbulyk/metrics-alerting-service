@@ -2,13 +2,14 @@ package main
 
 import (
 	"context"
-	"github.com/dbulyk/metrics-alerting-service/configs"
 	"net/http"
 	"os"
 	"os/signal"
 	"sync"
 	"syscall"
 	"time"
+
+	"github.com/dbulyk/metrics-alerting-service/internal/configs"
 
 	"github.com/dbulyk/metrics-alerting-service/internal/services"
 
@@ -22,7 +23,7 @@ func main() {
 	log.Logger = zerolog.New(output).With().Timestamp().Logger()
 
 	agentCfg := &configs.AgentCfg{}
-	cfg, err := agentCfg.GetAgentConfig()
+	cfg, err := agentCfg.Get()
 	if err != nil {
 		log.Panic().Err(err).Msg("config parsing error")
 	}
@@ -42,7 +43,7 @@ func main() {
 	wg := &sync.WaitGroup{}
 	for i := 0; i < cfg.RateLimit; i++ {
 		wg.Add(1)
-		go metrics.Send(ctx, wg, agent, cfg.Address)
+		go metrics.Send(ctx, wg, *agent, cfg.Address)
 	}
 
 	<-ctx.Done()

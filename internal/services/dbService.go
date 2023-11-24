@@ -23,7 +23,9 @@ type dbRepository struct {
 	key string
 }
 
-func NewDBRepository(db *sql.DB, dsn string, key string) storages.Repository {
+// NewDBRepository creates a new repository for working with the database and returns a pointer to it.
+// It also performs database migration.
+func NewDBRepository(db *sql.DB, dsn string, key string) storages.IRepository {
 	m, err := migrate.New(
 		"file://db/migrations",
 		dsn)
@@ -40,6 +42,7 @@ func NewDBRepository(db *sql.DB, dsn string, key string) storages.Repository {
 	}
 }
 
+// Set adds a new metric to the database or updates an existing one, check hash and add delta to existing counter.
 func (dr *dbRepository) Set(ctx context.Context, metric models.Metric) (*models.Metric, error) {
 	err := checkHashAndAddDelta(ctx, dr.db, &metric, dr.key)
 	if err != nil {
@@ -47,7 +50,9 @@ func (dr *dbRepository) Set(ctx context.Context, metric models.Metric) (*models.
 		return nil, err
 	}
 
-	_, err = dr.db.ExecContext(ctx, "insert into metrics(id, mtype, delta, value, hash) values($1, $2, $3, $4, $5) on conflict (id) do update set delta = $3, value = $4, hash = $5",
+	_, err = dr.db.ExecContext(ctx,
+		"insert into metrics(id, mtype, delta, value, hash) values($1, $2, $3, $4, $5) "+
+			"on conflict (id) do update set delta = $3, value = $4, hash = $5",
 		metric.ID, metric.MType, metric.Delta, metric.Value, metric.Hash)
 	if err != nil {
 		log.Error().Err(err).Msg("error of writing metrics to the database")
@@ -56,8 +61,10 @@ func (dr *dbRepository) Set(ctx context.Context, metric models.Metric) (*models.
 	return &metric, nil
 }
 
+// Get returns a metric from the database by name and type and check hash.
 func (dr *dbRepository) Get(ctx context.Context, mName string, mType string) (*models.Metric, error) {
-	rows := dr.db.QueryRowContext(ctx, "select id, mtype, delta, value, hash from metrics where id = $1 and mtype = $2", mName, mType)
+	rows := dr.db.QueryRowContext(ctx, "select id, mtype, delta, value, hash from metrics "+
+		"where id = $1 and mtype = $2", mName, mType)
 	var m models.Metric
 	err := rows.Scan(&m.ID, &m.MType, &m.Delta, &m.Value, &m.Hash)
 	if err != nil {
@@ -76,6 +83,7 @@ func (dr *dbRepository) Get(ctx context.Context, mName string, mType string) (*m
 	return &m, nil
 }
 
+// GetAll returns all metrics from the database.
 func (dr *dbRepository) GetAll(ctx context.Context) ([]*models.Metric, error) {
 	var metrics []*models.Metric
 
@@ -84,7 +92,12 @@ func (dr *dbRepository) GetAll(ctx context.Context) ([]*models.Metric, error) {
 		log.Error().Err(err).Msg("error of getting metrics from the database")
 		return nil, err
 	}
-	defer rows.Close()
+	defer func(rows *sql.Rows) {
+		err = rows.Close()
+		if err != nil {
+			log.Error().Err(err).Msg("error of closing rows")
+		}
+	}(rows)
 
 	for rows.Next() {
 		var m models.Metric
@@ -104,6 +117,8 @@ func (dr *dbRepository) GetAll(ctx context.Context) ([]*models.Metric, error) {
 	return metrics, nil
 }
 
+// Updates adds a slice of metrics to the database or updates existing ones, check hash
+// and add delta to existing counter.
 func (dr *dbRepository) Updates(ctx context.Context, metrics []models.Metric) ([]models.Metric, error) {
 	key := dr.key
 	for i := range metrics {
@@ -118,7 +133,8 @@ func (dr *dbRepository) Updates(ctx context.Context, metrics []models.Metric) ([
 			log.Error().Err(err).Msg("transaction opening error")
 			return nil, err
 		}
-		_, err = tx.ExecContext(ctx, "insert into metrics(id, mtype, delta, value, hash) values($1, $2, $3, $4, $5) on conflict (id) do update set delta = $3, value = $4, hash = $5",
+		_, err = tx.ExecContext(ctx, "insert into metrics(id, mtype, delta, value, hash) values($1, $2, $3, $4, $5) "+
+			"on conflict (id) do update set delta = $3, value = $4, hash = $5",
 			metrics[i].ID, metrics[i].MType, metrics[i].Delta, metrics[i].Value, metrics[i].Hash)
 		if err != nil {
 			log.Error().Err(err).Msg("error of writing the metric to the database. Roll back the transaction")
@@ -140,6 +156,7 @@ func (dr *dbRepository) Updates(ctx context.Context, metrics []models.Metric) ([
 	return metrics, nil
 }
 
+// Ping checks the connection to the database.
 func (dr *dbRepository) Ping() error {
 	return dr.db.Ping()
 }
@@ -157,13 +174,15 @@ func checkHashAndAddDelta(ctx context.Context, db *sql.DB, metric *models.Metric
 
 		mHash = utils.Hash(s, key)
 		if !hmac.Equal([]byte(mHash), []byte(metric.Hash)) {
-			log.Error().Msgf("the incoming hash does not match the calculated hash. Metric %s will not be added", metric.ID)
+			log.Error().Msgf("the incoming hash does not match the calculated hash. Metric %s will not be added",
+				metric.ID)
 			return ErrInvalidHash
 		}
 	}
 
 	if metric.MType == Counter {
-		res := db.QueryRowContext(ctx, "select delta from metrics where id = $1 and mtype = $2", metric.ID, metric.MType)
+		res := db.QueryRowContext(ctx, "select delta from metrics where id = $1 and mtype = $2",
+			metric.ID, metric.MType)
 		if res != nil {
 			var delta int64
 			err := res.Scan(&delta)

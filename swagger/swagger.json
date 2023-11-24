@@ -1,0 +1,301 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "description": "This is a metrics alerting service API.",
+    "title": "Metrics Alerting Service API",
+    "contact": {},
+    "version": "1"
+  },
+  "basePath": "/",
+  "paths": {
+    "/": {
+      "get": {
+        "description": "Returns all metrics.",
+        "produces": [
+          "text/html"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/models.Metric"
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "schema": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "/ping": {
+      "get": {
+        "description": "Check connection to db or always return 200 if we have a file repository.",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "type": "string"
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "schema": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "/update/": {
+      "post": {
+        "description": "Updates metrics with JSON.",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "description": "metric",
+            "name": "metric",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/models.Metric"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/models.Metric"
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "schema": {
+              "type": "string"
+            }
+          },
+          "501": {
+            "description": "Not Implemented",
+            "schema": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "/update/{type}/{name}/{value}": {
+      "post": {
+        "description": "Updates metrics with text.",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "metric type",
+            "name": "type",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "metric name",
+            "name": "name",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "metric value",
+            "name": "value",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/models.Metric"
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "schema": {
+              "type": "string"
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "schema": {
+              "type": "string"
+            }
+          },
+          "501": {
+            "description": "Not Implemented",
+            "schema": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "/updates/": {
+      "post": {
+        "description": "Handles HTTP requests to update metrics.",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "description": "metrics",
+            "name": "metrics",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/models.Metric"
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/models.Metric"
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "schema": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "/value/": {
+      "post": {
+        "description": "Returns a metric in application/json content-type.",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "description": "metric",
+            "name": "metric",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/models.Metric"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "type": "string"
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "schema": {
+              "type": "string"
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "schema": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "/value/{type}/{name}": {
+      "get": {
+        "description": "Returns a metric in text/plain content type.",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "metric type",
+            "name": "type",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "metric name",
+            "name": "name",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "type": "string"
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "schema": {
+              "type": "string"
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "schema": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "models.Metric": {
+      "type": "object",
+      "properties": {
+        "delta": {
+          "type": "integer",
+          "example": 1
+        },
+        "hash": {
+          "type": "string",
+          "example": "hash"
+        },
+        "id": {
+          "type": "string",
+          "example": "metric_name"
+        },
+        "type": {
+          "type": "string",
+          "example": "counter"
+        },
+        "value": {
+          "type": "number",
+          "example": 1
+        }
+      }
+    }
+  }
+}

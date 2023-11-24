@@ -3,10 +3,11 @@ package services
 import (
 	"context"
 	"encoding/json"
-	fileio2 "github.com/dbulyk/metrics-alerting-service/internal/fileio"
 	"os"
 	"testing"
 	"time"
+
+	fileio2 "github.com/dbulyk/metrics-alerting-service/internal/fileio"
 
 	"github.com/dbulyk/metrics-alerting-service/internal/models"
 	"github.com/dbulyk/metrics-alerting-service/internal/utils"

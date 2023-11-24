@@ -12,27 +12,35 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/dbulyk/metrics-alerting-service/internal/services"
-	"github.com/dbulyk/metrics-alerting-service/internal/storages"
+	httpSwagger "github.com/swaggo/http-swagger"
 
 	"github.com/dbulyk/metrics-alerting-service/internal/models"
+	"github.com/dbulyk/metrics-alerting-service/internal/services"
+	"github.com/dbulyk/metrics-alerting-service/internal/storages"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/rs/zerolog/log"
 )
 
+//	@Title			Metrics Alerting Service API
+//	@Description	This is a metrics alerting service API.
+//	@Version		1
+//	@BasePath		/
+
 type handler struct {
-	repository storages.Repository
+	repository storages.IRepository
 	r          chi.Router
 }
 
-func NewRouter(router *chi.Mux, rep *storages.Repository) (r Handler) {
+// NewRouter creates a new handler and returns a pointer to it.
+func NewRouter(router *chi.Mux, rep *storages.IRepository) (r Handler) {
 	return &handler{
 		repository: *rep,
 		r:          router,
 	}
 }
 
+// Register registers all metric handlers.
 func (h *handler) Register(router *chi.Mux) {
 	router.Route("/", func(r chi.Router) {
 		r.Get("/", h.GetAll)
@@ -43,9 +51,22 @@ func (h *handler) Register(router *chi.Mux) {
 		r.Post("/update/", h.UpdateWithJSON)
 		r.Post("/updates/", h.Updates)
 		r.Get("/ping", h.Ping)
+		r.Get("/swagger/*", httpSwagger.Handler(
+			httpSwagger.URL("/swagger/doc.json"),
+		))
 	})
 }
 
+// UpdateWithJSON updates metrics with JSON.
+//
+//	@Description	Updates metrics with JSON.
+//	@Accept			json
+//	@Produce		json
+//	@Param			metric	body		models.Metric	true	"metric"
+//	@Success		200		{object}	models.Metric
+//	@Failure		400		{string}	string
+//	@Failure		501		{string}	string
+//	@Router			/update/ [post]
 func (h *handler) UpdateWithJSON(w http.ResponseWriter, r *http.Request) {
 	defer func(Body io.ReadCloser) {
 		err := Body.Close()
@@ -67,11 +88,9 @@ func (h *handler) UpdateWithJSON(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if errors.Is(err, services.ErrInvalidHash) {
 			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte(err.Error()))
 			return
 		}
 		w.WriteHeader(http.StatusNotImplemented)
-		w.Write([]byte(err.Error()))
 		return
 	}
 
@@ -81,10 +100,19 @@ func (h *handler) UpdateWithJSON(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-
-	w.WriteHeader(http.StatusOK)
 }
 
+// UpdateWithText updates metrics with text.
+//
+//	@Description	Updates metrics with text.
+//	@Param			type	path		string	true	"metric type"
+//	@Param			name	path		string	true	"metric name"
+//	@Param			value	path		string	true	"metric value"
+//	@Success		200		{object}	models.Metric
+//	@Failure		400		{string}	string
+//	@Failure		501		{string}	string
+//	@Failure		404		{string}	string
+//	@Router			/update/{type}/{name}/{value} [post]
 func (h *handler) UpdateWithText(w http.ResponseWriter, r *http.Request) {
 	defer func(Body io.ReadCloser) {
 		err := Body.Close()
@@ -142,13 +170,17 @@ func (h *handler) UpdateWithText(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Error().Err(err).Msgf("metric %s update error ", mName)
 		w.WriteHeader(http.StatusNotImplemented)
-		w.Write([]byte(err.Error()))
 		return
 	}
-
-	w.WriteHeader(http.StatusOK)
 }
 
+// GetAll returns all metrics.
+//
+//	@Description	Returns all metrics.
+//	@Produce		html
+//	@Success		200	{array}		models.Metric
+//	@Failure		500	{string}	string
+//	@Router			/ [get]
 func (h *handler) GetAll(w http.ResponseWriter, r *http.Request) {
 	defer func(Body io.ReadCloser) {
 		err := Body.Close()
@@ -177,6 +209,16 @@ func (h *handler) GetAll(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// GetWithJSON returns a metric in application/json content-type.
+//
+//	@Description	Returns a metric in application/json content-type.
+//	@Accept			json
+//	@Produce		json
+//	@Param			metric	body		models.Metric	true	"metric"
+//	@Success		200		{string}	string
+//	@Failure		400		{string}	string
+//	@Failure		404		{string}	string
+//	@Router			/value/ [post]
 func (h *handler) GetWithJSON(w http.ResponseWriter, r *http.Request) {
 	defer func(Body io.ReadCloser) {
 		err := Body.Close()
@@ -199,7 +241,6 @@ func (h *handler) GetWithJSON(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Error().Err(err).Msgf("metric %s retrieval error", m.ID)
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte(err.Error()))
 		return
 	}
 
@@ -209,9 +250,17 @@ func (h *handler) GetWithJSON(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	w.WriteHeader(http.StatusOK)
 }
 
+// GetWithText returns a metric in text/plain content type.
+//
+//	@Description	Returns a metric in text/plain content type.
+//	@Param			type	path		string	true	"metric type"
+//	@Param			name	path		string	true	"metric name"
+//	@Success		200		{string}	string
+//	@Failure		400		{string}	string
+//	@Failure		404		{string}	string
+//	@Router			/value/{type}/{name} [get]
 func (h *handler) GetWithText(w http.ResponseWriter, r *http.Request) {
 	defer func(Body io.ReadCloser) {
 		err := Body.Close()
@@ -248,6 +297,17 @@ func (h *handler) GetWithText(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// Updates handles HTTP requests to update metrics.
+// It decodes the JSON request body into metrics, updates them using a 5-second context,
+// and sends the updated metrics back as a JSON response.
+//
+//	@Description	Handles HTTP requests to update metrics.
+//	@Accept			json
+//	@Produce		json
+//	@Param			metrics	body		[]models.Metric	true	"metrics"
+//	@Success		200		{object}	models.Metric
+//	@Failure		400		{string}	string
+//	@Router			/updates/ [post]
 func (h *handler) Updates(w http.ResponseWriter, r *http.Request) {
 	defer func(Body io.ReadCloser) {
 		err := Body.Close()
@@ -281,9 +341,14 @@ func (h *handler) Updates(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	w.WriteHeader(http.StatusOK)
 }
 
+// Ping check connection to db or always return 200 if we have a file repository.
+//
+//	@Description	Check connection to db or always return 200 if we have a file repository.
+//	@Success		200	{string}	string
+//	@Failure		500	{string}	string
+//	@Router			/ping [get]
 func (h *handler) Ping(w http.ResponseWriter, r *http.Request) {
 	defer func(Body io.ReadCloser) {
 		err := Body.Close()

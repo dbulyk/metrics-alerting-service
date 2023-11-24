@@ -1,0 +1,197 @@
+basePath: /
+definitions:
+  models.Metric:
+    properties:
+      delta:
+        example: 1
+        type: integer
+      hash:
+        example: hash
+        type: string
+      id:
+        example: metric_name
+        type: string
+      type:
+        example: counter
+        type: string
+      value:
+        example: 1
+        type: number
+    type: object
+info:
+  contact: { }
+  description: This is a metrics alerting service API.
+  title: Metrics Alerting Service API
+  version: "1"
+paths:
+  /:
+    get:
+      description: Returns all metrics.
+      produces:
+        - text/html
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.Metric'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+  /ping:
+    get:
+      description: Check connection to db or always return 200 if we have a file repository.
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+  /update/:
+    post:
+      consumes:
+        - application/json
+      description: Updates metrics with JSON.
+      parameters:
+        - description: metric
+          in: body
+          name: metric
+          required: true
+          schema:
+            $ref: '#/definitions/models.Metric'
+      produces:
+        - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Metric'
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "501":
+          description: Not Implemented
+          schema:
+            type: string
+  /update/{type}/{name}/{value}:
+    post:
+      description: Updates metrics with text.
+      parameters:
+        - description: metric type
+          in: path
+          name: type
+          required: true
+          type: string
+        - description: metric name
+          in: path
+          name: name
+          required: true
+          type: string
+        - description: metric value
+          in: path
+          name: value
+          required: true
+          type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Metric'
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "404":
+          description: Not Found
+          schema:
+            type: string
+        "501":
+          description: Not Implemented
+          schema:
+            type: string
+  /updates/:
+    post:
+      consumes:
+        - application/json
+      description: Handles HTTP requests to update metrics.
+      parameters:
+        - description: metrics
+          in: body
+          name: metrics
+          required: true
+          schema:
+            items:
+              $ref: '#/definitions/models.Metric'
+            type: array
+      produces:
+        - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Metric'
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+  /value/:
+    post:
+      consumes:
+        - application/json
+      description: Returns a metric in application/json content-type.
+      parameters:
+        - description: metric
+          in: body
+          name: metric
+          required: true
+          schema:
+            $ref: '#/definitions/models.Metric'
+      produces:
+        - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "404":
+          description: Not Found
+          schema:
+            type: string
+  /value/{type}/{name}:
+    get:
+      description: Returns a metric in text/plain content type.
+      parameters:
+        - description: metric type
+          in: path
+          name: type
+          required: true
+          type: string
+        - description: metric name
+          in: path
+          name: name
+          required: true
+          type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "404":
+          description: Not Found
+          schema:
+            type: string
+swagger: "2.0"

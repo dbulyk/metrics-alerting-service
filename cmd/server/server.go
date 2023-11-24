@@ -4,8 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"github.com/dbulyk/metrics-alerting-service/configs"
 
+	"github.com/dbulyk/metrics-alerting-service/internal/configs"
 	"github.com/dbulyk/metrics-alerting-service/internal/fileio"
 	"github.com/dbulyk/metrics-alerting-service/internal/handlers"
 	"github.com/dbulyk/metrics-alerting-service/internal/middlewares"
@@ -14,9 +14,8 @@ import (
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 
-	"github.com/go-chi/chi/v5/middleware"
-
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 
 	"net/http"
 	"os"
@@ -24,8 +23,8 @@ import (
 	"syscall"
 	"time"
 
+	_ "github.com/dbulyk/metrics-alerting-service/swagger"
 	"github.com/rs/zerolog"
-
 	"github.com/rs/zerolog/log"
 )
 
@@ -40,7 +39,7 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	var metrics storages.Repository
+	var metrics storages.IRepository
 
 	if len(cfg.DatabaseDsn) > 0 {
 		db, err := sql.Open("pgx", cfg.DatabaseDsn)
@@ -100,7 +99,7 @@ func main() {
 	shutdown(ctx, cfg, srv, metrics)
 }
 
-func shutdown(ctx context.Context, cfg *configs.ServerCfg, srv *http.Server, mem storages.Repository) {
+func shutdown(ctx context.Context, cfg *configs.ServerCfg, srv *http.Server, mem storages.IRepository) {
 	if len(cfg.StoreFile) > 0 && len(cfg.DatabaseDsn) == 0 {
 		producer, err := fileio.NewProducer(cfg.StoreFile)
 		if err != nil {
@@ -121,7 +120,7 @@ func shutdown(ctx context.Context, cfg *configs.ServerCfg, srv *http.Server, mem
 	log.Info().Msg("server stopped")
 }
 
-func startWriteToFile(ctx context.Context, cfg *configs.ServerCfg, metrics storages.Repository) *time.Ticker {
+func startWriteToFile(ctx context.Context, cfg *configs.ServerCfg, metrics storages.IRepository) *time.Ticker {
 	if cfg.Restore && len(cfg.StoreFile) > 0 {
 		consumer, err := fileio.NewConsumer(cfg.StoreFile)
 		if err != nil {

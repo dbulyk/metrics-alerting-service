@@ -17,6 +17,7 @@ type Producer struct {
 	encoder *json.Encoder
 }
 
+// NewProducer creates a new producer and returns a pointer to it.
 func NewProducer(filename string) (*Producer, error) {
 	err := os.MkdirAll("tmp", os.ModePerm)
 	if err != nil {
@@ -33,6 +34,7 @@ func NewProducer(filename string) (*Producer, error) {
 	}, nil
 }
 
+// Write writes metrics to file.
 func (p *Producer) Write(metrics []*models.Metric) error {
 	for i := range metrics {
 		err := p.encoder.Encode(&metrics[i])
@@ -43,11 +45,13 @@ func (p *Producer) Write(metrics []*models.Metric) error {
 	return nil
 }
 
+// Close the file.
 func (p *Producer) Close() error {
 	return p.file.Close()
 }
 
-func (p *Producer) Save(ctx context.Context, mem storages.Repository, filename string) error {
+// Save saves metrics to file.
+func (p *Producer) Save(ctx context.Context, mem storages.IRepository, filename string) error {
 	listMetrics, _ := mem.GetAll(ctx)
 
 	defer func(p *Producer) {

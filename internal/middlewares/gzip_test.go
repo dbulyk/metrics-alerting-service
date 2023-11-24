@@ -41,3 +41,22 @@ func TestGzipMiddleware(t *testing.T) {
 
 	assert.Equal(t, "Hello, World!", string(body))
 }
+
+func BenchmarkGzipMiddleware(b *testing.B) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("Hello, world!"))
+	})
+
+	middleware := GzipMiddleware(handler)
+
+	req := httptest.NewRequest("GET", "/", nil)
+	req.Header.Set("Accept-Encoding", "gzip")
+
+	gw := httptest.NewRecorder()
+
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		middleware.ServeHTTP(gw, req)
+	}
+}
